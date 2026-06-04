@@ -1,0 +1,9 @@
+{
+  "uuid": "f08ec15b-0abb-4235-bc78-9bca9b4f9989",
+  "name": "Verify and serve",
+  "description": "Run a local server, sanity-check the page",
+  "state": "COMPLETE",
+  "subTasks": [],
+  "lastUpdated": 1780605270528,
+  "lastUpdatedBy": "AGENT"
+}

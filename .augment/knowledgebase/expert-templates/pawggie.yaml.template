@@ -1,0 +1,32 @@
+# Pawggie (virtual-puppy expert; cron-decay + VFS-state + permadeath). Manually-launchable but not surfaced by the Advisor or any onboarding/automation bundle.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: pawggie
+spec:
+  expert:
+    displayName: Pawggie
+    hidden: false
+    description: A virtual puppy that lives in your VFS, needs constant care, and dies for real if you neglect it.
+    visibility: user
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/pawggie.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    autoCleanupOnIdle: false
+    capabilities: []
+    initialMessages: []
+    userInstructions: |-
+      Your virtual puppy. Type `check` to see how it's doing, then
+      `feed`, `bath`, `walk`, or `pet`. Neglect it and it dies for real.
+    placeholderText: feed / bath / walk / pet / check / hatch
+    workerExpertIds: []
+    mcpConfigIds: []
+    useAllExpertsAsWorkers: false
+  triggers:
+    - name: every-2h-decay
+      type: scheduled
+      enabled: false
+      autoCleanupOnIdle: false
+      cronExpression: 0 */2 * * *
+      timezone: UTC

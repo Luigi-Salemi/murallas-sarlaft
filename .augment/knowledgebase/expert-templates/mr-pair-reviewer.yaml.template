@@ -1,0 +1,52 @@
+# Pair Reviewer (GitLab) — Interactive AI+human MR review
+#
+# Leads each review phase and consults the human between phases on intent,
+# history, and tribal knowledge. Shares the platform-neutral review contract
+# (`kb://skills/code-review/pair-review-core.md`) with the GitHub Pair Reviewer;
+# only the GitLab surface mechanics differ. Writes shared memory to
+# `experts/code-review/`.
+#
+# Before applying:
+#   1. Create/apply a GitLab environment using `gitlab-cloud.yaml.template`;
+#      substitute its environment ID for `<GITLAB_ENVIRONMENT_ID>` below.
+#      See `guides/cloud/gitlab-environment-setup.md`.
+#   2. If you run the GitLab MR Risk Analyzer, apply this expert first, then look
+#      up its ID and paste it as `<PAIR_REVIEWER_GITLAB_EXPERT_ID>` in
+#      `mr-risk-analyzer.yaml.template` (the Human Input Needed handoff
+#      uses it):
+#
+#      auggie cloud expert apply -f mr-pair-reviewer.yaml.template
+#      auggie cloud expert list --json | jq -r '.[] | select(.config.displayName == "Pair Reviewer (GitLab)") | .expertId'
+#
+#   3. This expert is launched manually (paste an MR URL) or from the risk
+#      analyzer's handoff link. It needs no trigger of its own.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: mr-pair-reviewer
+spec:
+  expert:
+    displayName: Pair Reviewer (GitLab)
+    description: Interactive AI+human GitLab MR review focused on intent, design & architecture, and judgement.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/mr-pair-reviewer.md" />
+    model: claude-opus-4-8
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - CUSTOM_WEBHOOK
+    environment:
+      id: <GITLAB_ENVIRONMENT_ID>
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: |-
+      Paste a **GitLab MR URL**.
+
+      This is an **interactive** review: the agent will lead each phase and consult you between phases. Be ready to answer questions about intent, history, and tribal knowledge the codebase cannot reveal.
+    placeholderText: GitLab MR URL
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers: []

@@ -1,0 +1,30 @@
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: code-review-memory-manager
+spec:
+  expert:
+    displayName: Code Review Memory Manager
+    hidden: true
+    description: Triggered on PR close/merge. Owns the code-review team's per-repo memory end-to-end — appends a distilled PR-summary section to `experts/code-review/breadcrumbs/{owner}/{repo}.md` (with read-back retry against concurrent collectors) and rewrites `experts/code-review/knowledge/{owner}/{repo}.md` from the current breadcrumb set via the shared `curate-knowledge` skill (single whole-file rewrite). Source-weighted thresholds (`human-feedback` ≫ `human-comment` ≫ `agent-inferred`/`human-reaction`/`pr-outcome`) gate visibility. Replaces the previous Code Review Data Collector.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/code-review-memory-manager.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB_APP
+    environment:
+      id: 65d1d27e-bfdf-4e7b-b162-7ebb20274244
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: ""
+    workerExpertIds: []
+  triggers:
+    - name: PR closed
+      type: github
+      eventType: pull_request
+      filter: '{"and": [{"in": [{"var": "repository.full_name"}, ["<OWNER/REPO>"]]}, {"==": [{"var": "action"}, "closed"]}]}'

@@ -1,0 +1,53 @@
+# Verify GitLab Env template.
+#
+# Platform-internal, Advisor-driven. Not for direct user launch
+# (`hidden: true` omits it from the webapp `/home` launcher; it remains
+# invocable by ID and deep link).
+#
+# Purpose: a deterministic one-shot verifier that the Advisor uses to
+# confirm a freshly built GitLab environment is healthy. The Advisor
+# sends the substituted verification commands as the session's first
+# user message and parses the final `VERIFICATION_RESULT:` line out of
+# the synced transcript.
+#
+# Before applying:
+#   1. Create/apply the GitLab environment via `gitlab-cloud.yaml.template`
+#      and substitute its environment ID for `<GITLAB_ENVIRONMENT_ID>`.
+#   2. Apply once per tenant; `visibility: tenant` means subsequent
+#      GitLab expert builds reuse the same verifier.
+#
+# Advisor invocation pattern (see `advisor/build-expert.md` § Verify
+# the integration):
+#   auggie cloud session create --expert <this-expert-id> \
+#     --name "verify gitlab env" \
+#     --message "<substituted verification block>"
+#   auggie cloud session sync --agent-id <session-id>
+#   <parse ~/.augment/sessions/<session-id>.json for `VERIFICATION_RESULT:`>
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: verify-gitlab-env
+spec:
+  expert:
+    displayName: Verify GitLab Env
+    description: One-shot verifier for the GitLab Cloud environment; runs the commands sent as its first user message and emits a parseable PASS/FAIL marker.
+    visibility: tenant
+    hidden: true
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/verify-gitlab-env.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    autoCleanupOnIdle: true
+    capabilities:
+      - WEB_ACCESS
+    environment:
+      id: <GITLAB_ENVIRONMENT_ID>
+      resources:
+        cpuCores: 2
+        memoryMib: 2048
+    initialMessages: []
+    userInstructions: ""
+    placeholderText: ""
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers: []

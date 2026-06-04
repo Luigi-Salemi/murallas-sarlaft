@@ -1,0 +1,36 @@
+# GitLab Cloud environment template.
+#
+# Prerequisites:
+#   1. Store a GitLab access token in the Cosmos secret manager as `gitlab-token`
+#      (auto-installs as $GITLAB_TOKEN). Prefer a GitLab service-account token for
+#      shared/headless experts; personal PATs work for personal experts.
+#   2. Fill in GITLAB_HOST and GITLAB_REPOS below. GITLAB_REPOS is a
+#      comma-separated list of GitLab project paths such as `group/project`.
+#
+# Apply sequence:
+#   auggie cloud environment apply -f gitlab-cloud.yaml.template
+#   auggie cloud environment rebuild <ENV_ID> \
+#     --provision-script knowledgebase/expert-templates/gitlab-cloud-provision.sh \
+#     --vm-startup-script knowledgebase/expert-templates/gitlab-cloud-vm-startup.sh
+#
+# Security note: the provision script installs `glab` only. Repo auth and clone
+# happen in the VM startup script, where per-user/per-session secrets are
+# available. Do not clone with token-embedded remote URLs in the provision step;
+# that can bake a PAT into the shared environment snapshot.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: EnvironmentBundle
+metadata:
+  name: gitlab-cloud
+spec:
+  environment:
+    displayName: GitLab Cloud
+    visibility: tenant
+    baseImage: nikolaik/python-nodejs:python3.12-nodejs22-bookworm
+    # GitLab repos are cloned/fetched by gitlab-cloud-vm-startup.sh at VM boot,
+    # after $GITLAB_TOKEN has been auto-injected from the user's secrets.
+    refreshEnabled: false
+    environmentVariables:
+      - name: GITLAB_HOST
+        value: gitlab.com
+      - name: GITLAB_REPOS
+        value: "<GITLAB_GROUP>/<GITLAB_PROJECT_1>,<GITLAB_GROUP>/<GITLAB_PROJECT_2>"

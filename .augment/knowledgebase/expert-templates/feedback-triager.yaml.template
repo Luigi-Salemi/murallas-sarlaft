@@ -1,0 +1,304 @@
+# Feedback Triager (Slack) (one-session-per-thread)
+#
+# Reusable scaffolding for an expert that watches a single Slack channel for
+# new feedback messages, files tickets in a downstream system (Linear, Jira,
+# GitHub Issues), and continues to react to the same thread (replies, edits,
+# deletes, recovery @-mentions) for the lifetime of the session.
+#
+# This template supplies the **Slack trigger, intra-session lifecycle, and
+# event-loop dispatch** scaffolding (the lifecycle skill — claim,
+# research-and-sufficiency check, re-check, ticket action contract — plus
+# subscribe and event-loop phases in the system
+# prompt, including a clause for explicit human "open a PR/MR" requests
+# that dispatches into Fixer mode) together with channel-agnostic Slack
+# hygiene (permalink format, mrkdwn rules) — all of which are pulled in
+# from the shared Slack composable-skills library.
+# Anti-rabbit-hole budgets live inline in the template because they are
+# a single short block tuned to this workflow with no reuse outside it.
+# The two consumer-owned steps — classifying the root message and filing
+# the downstream ticket — are left as `<TODO: …>` placeholders so the
+# adopting team can plug in its own taxonomy and ticket system. An
+# illustrative classification scheme from the original Cosmos expert is
+# included via the example-classification skill at the bottom of the
+# system prompt; treat it as a starting point to copy and edit, not as
+# a default.
+#
+# # Fixer mode
+#
+# This template dispatches into Fixer mode when a human in the thread
+# explicitly asks the bot to open a PR/MR. Fixer mode composes the
+# shared `fix-via-pr-author` skill to launch `<PR_AUTHOR_EXPERT_ID>`
+# (a GitHub PR Author or GitLab MR Author expert) via the agent's
+# `worker-launch` tool with a Slack-origin structured handoff. The
+# launched worker posts milestone updates back to the thread on PR/MR
+# opened / ready-to-merge.
+#
+# Adopting bundles opt into Fixer mode by filling in
+# `<PR_AUTHOR_EXPERT_ID>` and `<TARGET_REPO>` in the system prompt's
+# "Adopting bundle context" block. The launched PR Author worker uses
+# its own built-in defaults for merge / verification / task-size
+# behavior — bundles that need to override those should add the
+# corresponding lines directly to the worker message in a fork of the
+# fixer-mode skill. Leaving `<PR_AUTHOR_EXPERT_ID>` as the literal
+# placeholder makes Fixer mode inert — the agent posts a brief
+# "Fixer mode is not configured" reply instead of launching the
+# worker.
+#
+# Extracted from the production `Cosmos Feedback Triage` expert
+# (`e310dee2-ec93-4905-8447-8d9bc7253fab`) after a duplicate-ticket race
+# (AU-20218/19, AU-20239/40, AU-20263/64) caused by triggering a new session
+# on `message_changed` events. This template fixes the race with a `:eyes:`
+# reaction claim lock + a single in-session subscription that covers
+# replies/edits/deletes/mentions.
+#
+# # When to use this template
+#
+# Use it when **all** of the following hold:
+#
+# - One Slack channel is the inbox; every fresh root message should produce
+#   one triage action and exactly one downstream ticket.
+# - You need to continue acting on the **same** thread after first triage
+#   (substantive edits update the ticket; deletes / "nvm" cancel it; replies
+#   with new context get folded in; @-mentions of the bot are answered).
+# - You want a recovery path so a missed trigger (system outage, filter bug)
+#   can be repaired by a human @-mention.
+#
+# # Auto-archive disabled
+#
+# Both triggers below set `autoCleanupOnIdle: false` so that sessions are
+# NOT auto-archived on idle. The in-session subscription created in Step 2
+# of the prompt carries the session through replies/edits/deletes, sometimes
+# hours after the original trigger fired — auto-archive on idle would tear
+# that subscription down and silently break the thread-lifetime contract.
+#
+# ⚠️  Known issue (2026-05-04): per-trigger `autoCleanupOnIdle` is accepted
+# by `expert apply` but NOT returned by `expert export` or `trigger list
+# --json`. Do NOT re-apply an exported bundle without manually re-adding
+# the per-trigger overrides — they will be silently lost. Verify overrides
+# through the webapp UI.
+#
+# # TODO: interaction with other Slack-based automations
+#
+# This template assumes the bot is the only automation acting on root
+# messages in the channel. If Slackbot, other channel bots, or scheduled
+# reminders also reply or react, we still need to define:
+#   - whose `:eyes:` reaction wins the claim (currently first-write-wins
+#     against this expert's own bot user; cross-bot collisions are
+#     undefined),
+#   - how Path B's "alive sibling" check should treat replies posted by
+#     other bots (today only this expert's `<TICKET_FILED_REPLY>` prefix +
+#     `<MARKER_COMMENT>` are recognised),
+#   - whether the channel-wide `app_mention` recovery trigger should ignore
+#     mentions of unrelated bots in the same thread.
+# Adopters: revisit before pointing this at a channel that is already wired
+# up to other Slack automations.
+#
+# # Anti-patterns
+#
+# - Triggering on `message_changed` (causes duplicate sessions for edits).
+# - Polling Slack on a timer instead of using the subscription.
+# - Using ticket-title keyword search instead of the `<MARKER_COMMENT>` /
+#   Slack permalink for self-detection (false negatives on rephrased
+#   titles).
+# - Subscribing with a single `event_type: message` call. Slack delivers
+#   `app_mention` payloads under their own event type; a `message`-only
+#   subscription drops them, so a recovery sibling that stands down per
+#   the recovery path leaves the user's @-mention unanswered. The
+#   Subscribe phase uses two `subscribe-event` calls (one for `message`,
+#   one for `app_mention`) for this reason.
+# - Adding a third `subscribe-event` call (or duplicating either of the
+#   two in the Subscribe phase) — each call is an independent stream and
+#   you'll process every matching event N times.
+# - Hardcoding the downstream "Cancelled" / "Done" workflow state ID — look
+#   it up at runtime; workflows get renamed and you won't notice until a
+#   year later when an `issueUpdate` 404s silently.
+# - Leaving `autoCleanupOnIdle` unset or set to `true` on the triggers
+#   (see "Auto-archive disabled" above).
+#
+# # Placeholders to fill in before applying
+#
+# | Placeholder              | Where                                          |
+# |--------------------------|------------------------------------------------|
+# | `<ENVIRONMENT_ID>`       | `spec.expert.environment.id`                   |
+# | `<CHANNEL_ID>`           | both trigger filters + system prompt context   |
+# | `<CHANNEL_NAME>`         | system prompt context                          |
+# | `<TICKET_FILED_REPLY>`   | system prompt context (recovery + ticket-filing)|
+# | `<MARKER_COMMENT>`       | system prompt context (recovery + ticket-filing)|
+# | `<workspace>`            | system prompt context (Slack permalink format) |
+# | `<TODO: classify…>`      | system prompt Classify phase — consumer's taxonomy|
+# | `<TODO: act…>`           | system prompt Act phase — consumer's filing    |
+# | `<CANCELLED_LOOKUP>`     | event-loop skill — runtime lookup of the       |
+# |                          | downstream "cancelled" state                   |
+# | `<DEFAULT_BEHAVIOR>`     | system prompt context (lifecycle Step 2.5 +    |
+# |                          | event-loop file-on-ask pre-check); literal     |
+# |                          | `proactive` or `reactive`                      |
+# | `<PR_AUTHOR_EXPERT_ID>`  | system prompt context (Fixer mode launch —     |
+# |                          | optional; leave as literal placeholder to     |
+# |                          | disable Fixer mode entirely)                  |
+# | `<TARGET_REPO>`          | system prompt context (Fixer mode hand-off)    |
+# | downstream capability    | `spec.expert.capabilities` (LINEAR_APP,        |
+# |                          | GITHUB_APP, …)                                 |
+
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: feedback-triager
+spec:
+  expert:
+    displayName: Feedback Triager (Slack)
+    description: Watches a Slack channel for new feedback, files one downstream ticket per thread, and continues to react to that thread (replies, edits, deletes, recovery @-mentions) for the lifetime of the session.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/feedback-triager.md" />
+
+      # Adopting bundle context
+
+      Replace these placeholders before applying:
+      - `<CHANNEL_ID>`, `<CHANNEL_NAME>` — Slack channel.
+      - `<TICKET_FILED_REPLY>` — confirmation message prefix posted after
+        a successful triage (e.g. `*Bug report filed* :bug: <url|ID>: <title>`).
+        Used by the recovery path for self-detection of an alive sibling
+        session.
+      - `<MARKER_COMMENT>` — unique HTML comment embedded in the ticket
+        description for self-detection (e.g. `<!-- cosmos-triage-bot -->`).
+      - `<workspace>` — the workspace's canonical Slack subdomain, used
+        when constructing thread permalinks.
+
+      ## Triage behaviour
+
+      `<DEFAULT_BEHAVIOR>` — one of the literal strings `proactive` or
+      `reactive`. Controls what the lifecycle skill's "Step 2.5: Research
+      pass and information-sufficiency check" does once it has enough
+      information to act:
+
+      - `proactive` — fits channels where every triaged thread should yield
+        a tracked downstream ticket. Step 2.5 dispatches into the Classify
+        and Act sections below and files the ticket as part of initial
+        triage, without waiting for a human prompt.
+      - `reactive` — fits channels where most threads are question-answering
+        or discussion and tickets should only be filed on request. Step 2.5
+        runs Classify, posts a short in-thread triage-summary reply with
+        the proposed category and a one-line "reply to file a ticket"
+        invitation, marks the thread settled, and stops without filing.
+        The downstream ticket is only filed if a human in the thread later
+        explicitly asks (event-loop clauses `a` / `e` pre-check, which
+        dispatches into the Act section per the Step 4 contract).
+
+      Pick one value and inline it verbatim — the lifecycle and event-loop
+      skills branch on the string. Leaving this as the literal `<DEFAULT_BEHAVIOR>`
+      placeholder is a configuration error and will leave both branches
+      ambiguous at runtime.
+
+      ## Fixer mode defaults
+
+      Filled-in values here turn on the Fixer-mode hand-off (event-loop
+      clause `f` dispatches into the fixer-mode skill, which composes
+      the shared `fix-via-pr-author` skill to launch the worker via the
+      agent's `worker-launch` tool). Leave them as literal `<…>`
+      placeholders to keep Fixer mode inert.
+
+      - `<PR_AUTHOR_EXPERT_ID>` — UUID of the PR Author (GitHub) or MR
+        Author (GitLab) expert in this tenant. Passed to `worker-launch`
+        as the expert to spin up; the launched worker owns the full
+        PR/MR lifecycle from open to merge.
+      - `<TARGET_REPO>` — `owner/repo` (or `group/project` for GitLab)
+        the worker should open the PR/MR against (e.g. `augmentcode/augment`).
+        The worker uses this for branch and PR/MR creation.
+
+      Merge / verification / task-size behavior is left to the launched
+      PR Author worker's own defaults (notify-only on merge; adaptive
+      verification gate; no built-in scope guardrail). Bundles that need
+      to override any of these should fork the fixer-mode skill and add
+      the corresponding lines to the worker message there.
+
+      ## Classify the root message
+
+      Run this section ONLY when the lifecycle skill's Step 2.5 dispatches
+      you here, or when an event-loop clause `a` / `e` file-ticket-on-ask
+      pre-check dispatches you here. Do NOT run this section as a top-level
+      phase after the shared prompt include; it is reference material for
+      those dispatch points.
+
+      <TODO: classify the root message into one of your team's categories
+      (bug / feature request / question / cancellation / spam / out-of-scope,
+      etc.) and decide what to file downstream. The adopting bundle owns the
+      taxonomy. An illustrative six-category scheme is included as an
+      appendix in the shared prompt — copy and edit it, do not adopt it
+      verbatim unless it actually fits your channel.>
+
+      ## Act on the classification
+
+      Run this section ONLY when (a) Step 2.5 dispatches you here in
+      `proactive` mode, OR (b) an event-loop clause `a` / `e`
+      file-ticket-on-ask pre-check dispatches you here. In `reactive` mode on
+      first trigger, Step 2.5 stops at the triage-summary reply — do NOT run
+      this section.
+
+      Run the lifecycle skill's "Step 3.5: Re-check thread context before
+      acting" first, then act per the lifecycle skill's "Step 4: Ticket
+      action contract" (both in the lifecycle block included above).
+
+      <TODO: call the downstream ticket API (Linear `issueCreate`, GitHub
+      `POST /repos/.../issues`, Jira create-issue, etc.) per the
+      classification step above, then post a Slack confirmation in the
+      thread, then add the `:white_check_mark:` settled reaction per the
+      ticket action contract.>
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - SLACK
+      # Add the downstream ticket-system capability your bundle needs:
+      # - LINEAR_APP
+      # - GITHUB_APP
+    environment:
+      id: <ENVIRONMENT_ID>
+    initialMessages: []
+    userInstructions: |-
+      This expert is event-driven. It runs automatically when the configured
+      Slack triggers fire — you do not launch sessions from it manually.
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers:
+    # 1. Fresh root messages only. Excludes:
+    #    - any message inside an existing thread (event.thread_ts is set)
+    #    - any subtype other than absent or `file_share` (so message_changed,
+    #      message_deleted, channel_join/leave/topic/purpose/name/archive/
+    #      unarchive, bot_message, me_message, thread_broadcast, etc. are
+    #      all excluded — those are handled by the in-session subscription
+    #      created in Step 2 of the prompt).
+    #    - the `event.type == message` clause is required: Slack's webhook
+    #      payload includes a top-level `event.type`, and without this
+    #      constraint a fresh `app_mention` (which also has the channel, no
+    #      thread_ts, and no subtype) would match this filter and
+    #      reintroduce the duplicate-session race this template is designed
+    #      to prevent.
+    - name: new-feedback-root
+      type: slack
+      eventType: message
+      autoCleanupOnIdle: false
+      filter: |-
+        {"and": [
+          {"==": [{"var": "event.channel"}, "<CHANNEL_ID>"]},
+          {"==": [{"var": "event.type"}, "message"]},
+          {"!": [{"var": "event.thread_ts"}]},
+          {"or": [
+            {"!": [{"var": "event.subtype"}]},
+            {"==": [{"var": "event.subtype"}, "file_share"]}
+          ]}
+        ]}
+    # 2. Recovery: any @-mention of the bot in the channel. Path B in the
+    #    system prompt either takes over (no alive session for this thread)
+    #    or stands down (a sibling session has already claimed the root).
+    #    The `event.type == app_mention` clause is required — Slack also
+    #    delivers app-mention events under the generic `message` event
+    #    type, and we only want the `app_mention` shape to fire this
+    #    trigger.
+    - name: app-mention-recovery
+      type: slack
+      eventType: app_mention
+      autoCleanupOnIdle: false
+      filter: |-
+        {"and": [
+          {"==": [{"var": "event.channel"}, "<CHANNEL_ID>"]},
+          {"==": [{"var": "event.type"}, "app_mention"]}
+        ]}

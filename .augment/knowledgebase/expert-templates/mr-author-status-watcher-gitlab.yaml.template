@@ -1,0 +1,33 @@
+# MR Author GitLab status-poll worker template.
+#
+# Apply this hidden worker before `mr-author.yaml.template`, then copy
+# its expert ID into the manager template's `<MR_AUTHOR_STATUS_WATCHER_EXPERT_ID>`.
+# Use the same `<GITLAB_ENVIRONMENT_ID>` as the manager so `glab` and the target
+# repos are available in both sessions.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: mr-author-status-watcher-gitlab
+spec:
+  expert:
+    displayName: "MR Author Status Watcher (GitLab)"
+    hidden: true
+    description: "Worker sub-agent for MR Author (GitLab). Not intended to be launched standalone. Polls MR health, manages SHA-specific pipeline subscriptions, and reports to the MR Author manager only when action is needed."
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/mr-author-status-watcher-gitlab.md" />
+    model: claude-haiku-4-5
+    includeDefaultSystemPrompt: true
+    autoCleanupOnIdle: false
+    capabilities:
+      - CUSTOM_WEBHOOK
+    environment:
+      id: <GITLAB_ENVIRONMENT_ID>
+      resources:
+        cpuCores: 1
+        memoryMib: 2048
+    initialMessages: []
+    userInstructions: ""
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers: []

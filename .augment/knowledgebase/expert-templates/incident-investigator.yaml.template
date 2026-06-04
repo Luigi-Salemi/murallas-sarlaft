@@ -1,0 +1,341 @@
+# Incident Investigator (Slack) (alert watcher + stationed incident companion)
+#
+# Reusable scaffolding for a single customer-facing incident-response expert.
+# It supports two activation models under one `incident-investigator` expert:
+#
+# - **Alert-thread mode:** one or more long-lived Slack alert channels receive
+#   incident-management-platform alerts and free-form incident reports. Each
+#   fresh top-level message launches a per-incident session, which triages,
+#   investigates, posts root-cause analysis in-thread, subscribes to that
+#   thread, and runs the post-resolution summary + post-mortem suggestion when
+#   the platform bot posts the resolution update.
+# - **Stationed-channel mode:** a human launches the same expert with an ad-hoc
+#   incident channel link, or the `channel_created` trigger auto-launches it
+#   for channels whose name matches the incident-channel pattern. One session
+#   watches that channel, handles every incident-like top-level message and
+#   engaged-thread follow-up, runs the same post-resolution summary +
+#   post-mortem suggestion on resolution, and stays alive until a human posts
+#   `stop`.
+#
+# # When to use this template
+#
+# Use it when the customer wants one incident expert that can both:
+#
+# - watch fixed alert channels for PagerDuty / Opsgenie / Datadog / Grafana
+#   OnCall / FireHydrant / Rootly / incident.io / Slack Incident Management
+#   alerts and free-form human incident chatter; and
+# - be stationed in ad-hoc incident channels created per incident.
+#
+# You need a PR Author expert deployed if code fixes should be offered; all
+# code fixes are gated on explicit human option-selection in the Slack thread.
+#
+# # Tailoring to the customer's incident-management platform
+#
+# This template is platform-agnostic. The advisor applying it MUST fill in the
+# *Incident-management platform* block with the platform name, Slack bot user
+# id, incident URL shape, resolution keywords, and urgency → P0-P3 mapping.
+# Alert-thread and stationed-channel modes both use those values to recognise
+# platform-authored alerts and resolution messages.
+#
+# # Customer must provide log-query and metrics-query skills
+#
+# The investigate skill (`kb://skills/incident-investigator/investigate.md`)
+# refers to "the runtime's metrics-query and log-query skills" generically — it
+# does NOT name them. Those skills are infrastructure-specific (GCP Cloud
+# Logging, AWS CloudWatch, Datadog, Splunk, etc.) and are NOT shipped as
+# knowledgebase skills.
+#
+# Before applying this template, the advisor MUST ask the customer how they
+# query metrics and logs, confirm a skill exists (or help author one) for each,
+# and fill in the *Available skills* block with the tenant-provided skill names.
+# Without those skills the investigator cannot complete Phase 2.
+#
+# # Auto-invite the investigator to incident channels
+#
+# For stationed-channel mode to read private incident channels, the Slack bot
+# user (`<BOT_USER_ID>`) must already be invited. Most incident-management apps
+# let teams configure default invitees for every incident channel they create;
+# add the bot user there. Public channels can be joined by Phase 0B; private
+# channels need an explicit invite.
+#
+# # Placeholders to fill in before applying
+#
+# | Placeholder                       | Where                                          |
+# |-----------------------------------|------------------------------------------------|
+# | `<ENVIRONMENT_ID>`                | `spec.expert.environment.id`                   |
+# | `<PR_AUTHOR_EXPERT_ID>`           | `spec.expert.workerExpertIds`                  |
+# | `<BOT_USER_ID>`                   | system prompt *Identity* + trigger filters     |
+# | `<INCIDENT_PLATFORM_BOT_USER_ID>` | system prompt *Incident-management platform*   |
+# | `<SIBLING_BOT_USER_IDS>`          | system prompt *Sibling agents* + filters       |
+# | `<ALERT_CHANNEL_ID>`              | alert-channel trigger + *Alert channels*       |
+# | `<ALERT_CHANNEL_NAME>`            | system prompt *Alert channels*                 |
+# | incident-channel naming pattern   | `channel_created` trigger comments/filter      |
+# | incident-management platform      | system prompt block of the same name           |
+# | available skills                  | system prompt *Available skills*               |
+# | infrastructure context            | system prompt *Infrastructure context*         |
+# | service/signal routing table      | system prompt *Service / signal → handoff channel* |
+# | post-mortem report format         | system prompt *Post-mortem report*             |
+# | per-channel runbook URLs          | system prompt *Runbooks* block (optional)      |
+
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: incident-investigator
+spec:
+  expert:
+    displayName: Incident Investigator (Slack)
+    description: Single Incident Investigator (Slack) expert for both fixed alert channels and ad-hoc incident channels. In alert-thread mode it watches configured alert channels for incident-management-platform alerts and top-level incident messages, posts root-cause analysis in-thread, and subscribes to follow-ups. In stationed-channel mode it is manually launched with a Slack channel/message link or auto-launched on incident channel creation, watches the channel until `stop`, and handles every incident-like top-level message and engaged-thread follow-up. In both modes, on resolution it posts an in-thread post-resolution summary and suggests a formal post-mortem write-up. Code fixes are gated on explicit human approval before launching PR Author.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/incident-investigator.md" />
+
+      # Adopting bundle context
+
+      Replace these placeholders before applying — the shared prompt
+      above refers to each section by name.
+
+      ## Identity
+
+      - **Bot user ID:** `<BOT_USER_ID>` — the Slack user id this expert
+        posts as. Skip it in `subscribe-event` filters so your own
+        posts never re-trigger the session, and use it for
+        self-detection in `conversations.replies` scans.
+
+      ## Incident-management platform
+
+      Wherever the shared prompt or sub-skills above refer to
+      `<incident-management-platform>`, they mean the platform named
+      below. Fill in every field; triage, steady-state routing, and
+      post-resolution-summary bind to these values.
+
+      - **Platform name:** <TODO: e.g. `PagerDuty`, `Opsgenie`,
+        `Datadog`, `Grafana OnCall`>. Replace the literal
+        `<incident-management-platform>` token in this prompt and in
+        any in-thread copy with this name.
+      - **Slack bot user ID:** `<INCIDENT_PLATFORM_BOT_USER_ID>` — the
+        Slack user id of the platform's bot that posts alerts and
+        resolution updates in alert and incident channels. Used by
+        triage to recognise platform-authored alerts and by the
+        follow-up router to recognise in-thread resolution messages.
+      - **Incident URL shape:** <TODO: e.g.
+        `https://<subdomain>.pagerduty.com/incidents/<INCIDENT_ID>`
+        for PagerDuty, `https://app.opsgenie.com/alert/detail/<ALERT_ID>`
+        for Opsgenie>. The triage skill uses this to recognise and
+        cite incident links.
+      - **Resolution keywords:** <TODO: words / phrases the platform's
+        bot uses in its in-thread resolution message, e.g.
+        `Resolved`, `resolved`, `auto-resolved` for PagerDuty;
+        `Closed` for Opsgenie>. Used to confirm a platform-bot message
+        is actually a resolution update before running Phase 5.
+      - **Urgency → P0-P3 mapping:** <TODO: e.g. PagerDuty
+        `urgency=high` → P1, `low` → P3>. The triage skill uses this
+        as the severity-default rule for platform-native alerts.
+
+      ## Sibling agents
+
+      Other AI incident-response agents that post in the same alert or
+      incident channels. Filter their messages out of every read; never
+      defer to or hand off to them.
+
+      <TODO: list any sibling AI agent bot user ids that may run in the
+      same channels, one bullet per agent. Example:
+      `• Athena (U09PLN3EAJG / B09PAP85AMR) — parallel incident
+      responder, comparison-only`. If there are none, write
+      `_none — this is the only AI agent in these channels._`>
+
+      Also update `<SIBLING_BOT_USER_IDS>` in trigger filters to a JSON
+      array of those bot user ids (`[]` if none).
+
+      ## Alert channels
+
+      - `<ALERT_CHANNEL_ID>` — `<ALERT_CHANNEL_NAME>`
+
+      Long-lived channels watched in alert-thread mode. To watch
+      additional channels, add another `alert-channel-engage` trigger
+      per channel below; the shared prompt is channel-agnostic and uses
+      `event.channel` from the triggering event.
+
+      ## Incident channel auto-launch
+
+      Stationed-channel mode can also launch automatically from the
+      `incident-channel-auto-launch` trigger below. Tune that trigger's
+      naming filter to match your incident-management platform's channel
+      convention (for example `inc-`, `pd-incident-`, `sev-`, or a
+      stricter workspace-specific prefix). For manual-only deployments,
+      delete the trigger block or set `enabled: false`.
+
+      ## Runbooks
+
+      Per-channel runbooks documenting the alerts firing in each
+      channel — alert names, thresholds, what they mean, and
+      first-response steps. When the triggering event arrives in
+      one of the channels listed below, fetch the listed runbook
+      **before** running Phase 2 (Investigate) and consult it for
+      the named alert. Treat anything the runbook says about
+      scope, thresholds, or known causes as authoritative; cite
+      the runbook URL in the *Link to evidence* section of your
+      Phase 3 post when it materially informs the analysis. Skip
+      this step for channels not listed below.
+
+      A runbook URL can point to either:
+
+      a. **Codebase (recommended)** — an in-repo URL (e.g. a
+         GitHub blob URL pinned to a SHA), fetched via the
+         runtime's GitHub-app or Web capability with no
+         additional setup.
+      b. **External tool** — a Notion page, PagerDuty runbook,
+         Confluence doc, etc. The adopter MUST also wire the
+         matching MCP server (Notion MCP, PagerDuty MCP, …) into
+         *Available skills* below so the agent can read the page;
+         without that MCP the URL is unfetchable.
+
+      <TODO: list one bullet per channel that has a runbook, in
+      the form `- <CHANNEL_ID> — <channel-name> — <RUNBOOK_URL>`.
+      If none, write `_none — no per-channel runbooks._`>
+
+      ## Available skills (metrics, logs, runtime tools)
+
+      The investigate skill above refers to "the runtime's metrics-query
+      and log-query skills" generically. This block names the actual
+      tenant-provided evidence-gathering skills the investigator should
+      call. The advisor applying this template MUST ask the customer
+      what they use to investigate incidents and list each tool the
+      customer has registered as a skill (or wired in via MCP). At a
+      minimum, fill in the metrics-query and log-query skills below;
+      add bullets for any other evidence sources the customer has,
+      e.g. distributed traces, profiles, exception trackers, an MCP
+      server for their observability stack, or a service-metadata
+      lookup tool.
+
+      - **Metrics query:** `<TODO: name of the customer's metrics-query
+        skill>` — used for request rate, error rate, restart count,
+        replica count, memory, and any other quantitative signal.
+      - **Log query:** `<TODO: name of the customer's log-query
+        skill>` — used for all log investigation.
+      - **Other evidence sources:** `<TODO: list any additional
+        evidence-gathering skills / tools / MCPs the customer has
+        wired in (traces, profiles, exception trackers, service
+        metadata, runbooks, …), one bullet each. If none, write
+        `_none — investigate using only metrics + logs._`>`
+
+      ## Infrastructure context
+
+      <TODO: describe your runtime infrastructure so the investigate
+      skill can scope its queries. Include:
+      - Production runtime contexts (cluster / cloud / region names)
+      - Namespace / tenancy conventions (multi-tenant shards,
+        dedicated shards, central / staging namespaces)
+      - Service comms (gRPC + mTLS, DNS pattern, etc.)
+      - Reliable structured-log fields for your log store, and any
+        unreliable ones to AVOID filtering on.
+      - Canonical metric names if they differ from anything the
+        adopting team mentions inline.
+      - Timestamp conventions: most tools return RFC3339; convert to
+        local time only for human display; URL `timeRange` values
+        use UTC with `Z` and nanosecond precision.
+      - Canonical evidence-link templates used by the post-structure
+        skill's *Link to evidence* section, e.g.
+        - Metric: `<https://<dashboard-host>/go/metrics?expr=<URL_ENCODED_QUERY>&timeRange=<START>/<END>|View metric>`
+        - Logs:   `<https://<dashboard-host>/go/logs?query=<URL_ENCODED_QUERY>&timeRange=<START>/<END>|View logs>`>
+
+      ## Service / signal → handoff channel
+
+      Used by the escalation-routing skill when *Recommended action*
+      is `escalate`, and by the post-structure skill's *Owners:*
+      line. First case-insensitive substring match wins.
+
+      <TODO: fill in the routing table for your org. Example shape:
+
+      | Match (case-insensitive substring) | Handoff channel |
+      |------------------------------------|-----------------|
+      | poseidon                           | #team-poseidon  |
+      | code_review, code-review           | #team-code-review|
+      | billing, credits, usage            | #team-billing   |
+
+      Update the table directly when ownership changes.>
+
+      ## Post-mortem report
+
+      Used in both modes after the in-thread post-resolution summary,
+      to suggest a formal post-mortem write-up. Phase 5b always runs;
+      the fields below only tune the wording.
+
+      - **Report format:** <TODO: optional. This agent cannot open
+        external doc tools (Notion, Google Docs, Linear), so do not
+        link a template here — instead paste the section outline you
+        want the write-up to follow as plain text or a fenced code
+        block, e.g. one heading per line. If omitted, Phase 5b falls
+        back to its default five-section format.>
+      - **Owner hint:** <TODO: optional one-line hint about who usually
+        owns the write-up. Phase 5b does not @-mention anyone; this is
+        only context for wording.>
+
+      ## PR Author worker
+
+      The PR Author worker referenced in Phase 4 is the expert listed
+      under `spec.expert.workerExpertIds` (`<PR_AUTHOR_EXPERT_ID>`).
+      Pass the option label, repo / file / line context, root-cause
+      evidence, draft-vs-ready hint, the Slack channel + thread `ts`,
+      and a link back to this session in the worker message — the
+      shared Slack fix-via-pr-author skill included above lists the
+      exact contract.
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    autoCleanupOnIdle: false
+    capabilities:
+      - WEB_ACCESS
+      - SLACK
+      - GITHUB_APP
+    environment:
+      id: <ENVIRONMENT_ID>
+    initialMessages: []
+    userInstructions: |-
+      This expert supports two launch modes. Alert-thread mode runs
+      automatically when a configured alert channel sees a fresh
+      top-level message; the original investigation session handles
+      in-thread follow-ups and the platform's resolution update.
+      Stationed-channel mode launches manually when you paste a Slack
+      channel link (or message permalink), or automatically when the
+      `channel_created` trigger matches an incident-channel name; it
+      watches that channel until a human posts `stop`.
+    workerExpertIds:
+      - <PR_AUTHOR_EXPERT_ID>
+    useAllExpertsAsWorkers: false
+  triggers:
+    # Engage trigger — any fresh top-level message in the alert
+    # channel from anyone other than this expert's own bot user
+    # or a sibling AI agent. The Phase 1 step 1 engage/ignore
+    # decision filters non-incident chatter inside the session.
+    # `event.type == "message"` is required so app_mention-shaped
+    # payloads do not match this filter.
+    - name: alert-channel-engage
+      type: slack
+      eventType: message
+      autoCleanupOnIdle: false
+      filter: |-
+        {"and": [
+          {"==": [{"var": "event.type"}, "message"]},
+          {"==": [{"var": "event.channel"}, "<ALERT_CHANNEL_ID>"]},
+          {"==": [{"var": "event.thread_ts"}, null]},
+          {"==": [{"var": "event.subtype"}, null]},
+          {"!=": [{"var": "event.user"}, "<BOT_USER_ID>"]},
+          {"!": [{"in": [{"var": "event.user"}, <SIBLING_BOT_USER_IDS>]}]}
+        ]}
+
+    # Auto-launch on `channel_created` for ad-hoc incident channels.
+    # Tune the naming filter for the adopting customer's incident-channel
+    # convention, or set `enabled: false` / delete this trigger for
+    # manual-only stationed-channel launches.
+    - name: incident-channel-auto-launch
+      type: slack
+      eventType: channel_created
+      autoCleanupOnIdle: false
+      filter: |-
+        {"and": [
+          {"==": [{"var": "event.type"}, "channel_created"]},
+          {"or": [
+            {"in": ["inc_", {"var": "event.channel.name"}]},
+            {"in": ["inc-", {"var": "event.channel.name"}]},
+            {"in": ["incident", {"var": "event.channel.name"}]}
+          ]}
+        ]}

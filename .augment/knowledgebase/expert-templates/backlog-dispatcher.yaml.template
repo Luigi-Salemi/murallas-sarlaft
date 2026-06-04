@@ -1,0 +1,104 @@
+# Backlog Dispatcher (scheduled triage → PR Author hand-off)
+#
+# NOTE: The web app's `?onboarding=auto` chooser also seeds this expert
+# via clients/web/app/src/lib/client-cache/experts/default-expert-seeds-auto.ts
+# (`BACKLOG_DISPATCHER_*` constants and the matching `AUTO_FLOW_EXPERT_SEEDS`
+# entry). When you change displayName, description, model, capabilities,
+# userInstructions, or the systemPrompt body block here, update that file
+# in lockstep.
+#
+# Scans configured GitHub repos and Linear teams every 3 hours
+# (newest-first) and dispatches the `PR Author (GitHub)` expert as a
+# worker for tickets that look ready. Behavioural details — dispatch
+# rubric, scan loop, label state machine, VFS PR registry, stale-PR
+# sweep — live in `expert-templates/prompts/backlog-dispatcher.md` and
+# `skills/backlog-dispatcher/*.md`. Those files are the source of
+# truth; this template is just the operator-facing wiring.
+#
+# # Before applying
+#
+# - Apply `pr-author.yaml.template` first and copy its expert ID into
+#   `<PR_AUTHOR_EXPERT_ID>` below.
+# - Fill in the placeholders flagged in `expert-templates/README.md`
+#   (`<ENVIRONMENT_ID>`, `<GITHUB_USERNAME>`, `<GITHUB_REPOS>`,
+#   `<LINEAR_TEAM_KEYS>`).
+# - Tighten or loosen the cron expression to match your team's
+#   triage rhythm (default: every 3 hours).
+#
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: backlog-dispatcher
+spec:
+  expert:
+    displayName: Backlog Dispatcher
+    description: Scans GitHub and Linear tickets on a schedule and dispatches a PR Author worker for the ones that look ready.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/backlog-dispatcher.md" />
+
+      # Adopting bundle context
+
+      The shared skills above reference these context values. Replace
+      the placeholders before applying:
+
+      - Role name (`ROLE_NAME`): `Backlog Dispatcher`
+      - Emoji (`EMOJI`): 🎫
+      - On-behalf-of (`ON_BEHALF_OF`): `<GITHUB_USERNAME>` (the human
+        whose name appears in failure comments; usually the operator
+        who applied this expert)
+      - Session URL (`SESSION_URL`): your session URL from
+        `session-metadata.md`
+      - GitHub repos to scan (`GITHUB_REPOS`): `<GITHUB_REPOS>`
+        (e.g. `["acme-corp/web", "acme-corp/api"]`; leave the
+        `GITHUB` and `GITHUB_APP` capabilities off and use `[]` to
+        disable GitHub)
+      - Linear team keys to scan (`LINEAR_TEAM_KEYS`):
+        `<LINEAR_TEAM_KEYS>` (e.g. `["ENG", "PLAT"]`; leave the
+        `LINEAR_APP` capability off and use `[]` to disable Linear)
+      - Max dispatches per source per tick (`MAX_DISPATCHES_PER_RUN`):
+        `5`
+      - Max candidates per source per tick
+        (`MAX_CANDIDATES_PER_SOURCE`): `25`
+      - Max dispatcher-owned open PRs globally (`MAX_OPEN_PRS`): `10`
+      - Minimum ticket age in hours before it is eligible
+        (`SETTLING_AGE_HOURS`): `1`
+      - Days an open dispatcher-owned PR can sit idle before the
+        stale sweep closes it (`STALE_PR_DAYS`): `7`
+      - VFS directory for the PR registry (`PR_REGISTRY_PATH`):
+        `tenant/experts/backlog-dispatcher/state/prs/` (matches the
+        `visibility: tenant` setting below; switch the prefix to
+        `user/...` if you flip visibility to `user` for personal
+        or dev use)
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB
+      - GITHUB_APP
+      - LINEAR_APP
+    environment:
+      id: <ENVIRONMENT_ID>
+      resources:
+        cpuCores: 1
+        memoryMib: 2048
+    initialMessages: []
+    userInstructions: |-
+      Scans GitHub and Linear tickets on a schedule and dispatches a
+      PR Author worker for the ones that look ready. Say "run" to
+      trigger a scan manually.
+    workerExpertIds:
+      - <PR_AUTHOR_EXPERT_ID>
+    useAllExpertsAsWorkers: false
+  triggers:
+    # Cron-fired scan tick. `autoCleanupOnIdle: false` keeps the
+    # session alive long enough to receive PR Author worker reports
+    # (which can arrive 10–30 minutes after launch).
+    # ⚠️  Known issue: per-trigger autoCleanupOnIdle is not round-tripped
+    # by `expert export`. Do not re-apply an exported bundle without
+    # manually re-adding this override.
+    - name: scan-every-3h
+      type: scheduled
+      cronExpression: "0 */3 * * *"
+      timezone: UTC
+      autoCleanupOnIdle: false

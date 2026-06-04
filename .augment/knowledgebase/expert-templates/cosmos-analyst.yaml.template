@@ -1,0 +1,25 @@
+# Cosmos Analyst expert — GitHub-first PR throughput trends for a Cosmos cohort.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: cosmos-analyst
+spec:
+  expert:
+    displayName: Cosmos Analyst
+    description: Learn how Cosmos has impacted your engineering team using GitHub activity data.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/cosmos-analyst.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - GITHUB
+    environment:
+      id: <ENVIRONMENT_ID>
+    initialMessages: []
+    userInstructions: |-
+      Understand how Cosmos has impacted your engineering team by exploring activity — PR trends, team comparisons, and adoption insights.
+
+      Tell me the repo, team or engineers, and roughly when Cosmos adoption started.
+    placeholderText: What would you like to learn about your team's Cosmos impact?
+  triggers: []

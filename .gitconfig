@@ -1,0 +1,5 @@
+[credential "https://github.com"]
+	helper = /tmp/git-credential-helper
+[user]
+	name = Luigi-Salemi
+	email = 67118599+Luigi-Salemi@users.noreply.github.com

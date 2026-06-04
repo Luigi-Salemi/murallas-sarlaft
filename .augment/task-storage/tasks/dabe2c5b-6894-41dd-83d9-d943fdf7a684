@@ -1,0 +1,9 @@
+{
+  "uuid": "dabe2c5b-6894-41dd-83d9-d943fdf7a684",
+  "name": "Build HTML structure",
+  "description": "Create semantic HTML for nav, hero, services, about (Cartagena), approach, contact form, footer with formal Spanish copy",
+  "state": "COMPLETE",
+  "subTasks": [],
+  "lastUpdated": 1780605151171,
+  "lastUpdatedBy": "AGENT"
+}

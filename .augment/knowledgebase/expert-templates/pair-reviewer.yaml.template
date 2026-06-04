@@ -1,0 +1,53 @@
+# Pair Reviewer (GitHub) – Interactive AI+human code review
+#
+# Leads each review phase and consults the human between phases on intent,
+# history, and tribal knowledge. Writes shared memory to `experts/code-review/`.
+#
+# # Before adopting this template
+#
+# Apply this expert first, then look up its ID — produces the value
+# for `<PAIR_REVIEWER_EXPERT_ID>` in `pr-risk-analyzer.yaml.template`
+# (the Human Input Needed handoff uses it):
+#
+# ```bash
+# auggie cloud expert apply -f pair-reviewer.yaml.template
+# auggie cloud expert list --json | jq -r '.[] | select(.config.displayName == "Pair Reviewer (GitHub)") | .expertId'
+# # => ID to paste as <PAIR_REVIEWER_EXPERT_ID> in pr-risk-analyzer.yaml.template
+# ```
+#
+# If you don't run Pair Reviewer, delete the Human Input Needed handoff links
+# from pr-risk-analyzer's system prompt instead of filling the placeholder.
+
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: pair-reviewer
+  resourceVersion: 44
+spec:
+  expert:
+    id: 1b037d09-0175-4b78-b2cf-d34899fb935c
+    displayName: Pair Reviewer (GitHub)
+    description: Interactive AI+human review focused on intent, design & architecture, and judgement.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/pair-reviewer.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB
+      - GITHUB_APP
+    environment:
+      id: 65d1d27e-bfdf-4e7b-b162-7ebb20274244
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: |-
+      Paste a **GitHub PR URL**.
+
+      This is an **interactive** review: the agent will lead each phase and consult you between phases. Be ready to answer questions about intent, history, and tribal knowledge the codebase cannot reveal.
+    placeholderText: GitHub PR URL
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers: []

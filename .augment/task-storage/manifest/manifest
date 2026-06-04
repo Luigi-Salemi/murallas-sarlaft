@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "lastUpdated": 1780605270528,
+  "tasks": {
+    "a6f86616-7293-4848-88c3-67634321ea8e": {
+      "uuid": "a6f86616-7293-4848-88c3-67634321ea8e",
+      "name": "Current Task List",
+      "lastUpdated": 1780605062608,
+      "state": "NOT_STARTED"
+    },
+    "c0f2b83d-f9d3-4147-9a09-16de3750dd76": {
+      "uuid": "c0f2b83d-f9d3-4147-9a09-16de3750dd76",
+      "name": "Project scaffolding",
+      "lastUpdated": 1780605151170,
+      "state": "COMPLETE",
+      "parentTask": "a6f86616-7293-4848-88c3-67634321ea8e"
+    },
+    "dabe2c5b-6894-41dd-83d9-d943fdf7a684": {
+      "uuid": "dabe2c5b-6894-41dd-83d9-d943fdf7a684",
+      "name": "Build HTML structure",
+      "lastUpdated": 1780605151171,
+      "state": "COMPLETE",
+      "parentTask": "a6f86616-7293-4848-88c3-67634321ea8e"
+    },
+    "67c99657-90eb-4d6d-aece-978d3ba09346": {
+      "uuid": "67c99657-90eb-4d6d-aece-978d3ba09346",
+      "name": "Style with monochrome minimalist CSS",
+      "lastUpdated": 1780605230364,
+      "state": "COMPLETE",
+      "parentTask": "a6f86616-7293-4848-88c3-67634321ea8e"
+    },
+    "26708b86-9dd5-4705-b56a-e5a4fc904fac": {
+      "uuid": "26708b86-9dd5-4705-b56a-e5a4fc904fac",
+      "name": "Add responsiveness",
+      "lastUpdated": 1780605230364,
+      "state": "COMPLETE",
+      "parentTask": "a6f86616-7293-4848-88c3-67634321ea8e"
+    },
+    "f94a9598-8fae-4be1-ae9e-dd565ee1507a": {
+      "uuid": "f94a9598-8fae-4be1-ae9e-dd565ee1507a",
+      "name": "Add interactivity JS",
+      "lastUpdated": 1780605252632,
+      "state": "COMPLETE",
+      "parentTask": "a6f86616-7293-4848-88c3-67634321ea8e"
+    },
+    "f08ec15b-0abb-4235-bc78-9bca9b4f9989": {
+      "uuid": "f08ec15b-0abb-4235-bc78-9bca9b4f9989",
+      "name": "Verify and serve",
+      "lastUpdated": 1780605270528,
+      "state": "COMPLETE",
+      "parentTask": "a6f86616-7293-4848-88c3-67634321ea8e"
+    }
+  }
+}

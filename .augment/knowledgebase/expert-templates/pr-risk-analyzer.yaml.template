@@ -1,0 +1,80 @@
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: pr-risk-analyzer-github
+  resourceVersion: 32
+spec:
+  expert:
+    id: eaef82c4-60cf-40d5-b72c-e410bd8c6136
+    displayName: PR Risk Analyzer (GitHub)
+    hidden: true
+    description: Auto-triages PRs as rubber-stamp-safe or needing deeper review when a PR opens or is marked ready for review; also re-analyzes on a `cosmos risk-analysis` PR comment.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/pr-risk-analyzer.md" />
+
+      # Opted-out repos and sub-directories — always require full review
+
+      Edit this list for your repository. The categories below are the recommended pattern; replace the example paths with the sensitive areas of your codebase.
+
+      ## Opted-out repos (entire repo always requires review)
+      <OWNER>/<REPO_NAME>
+
+      ## Sub-directories in `<OWNER>/<MAIN_REPO>` that always require full review
+
+      ### Security & Trust
+      path/to/auth
+      path/to/security
+      path/to/secrets
+
+      ### Billing & Payments
+      path/to/billing
+
+      ### Access Control & Gateways
+      path/to/api_proxy
+      path/to/sandbox
+
+      ### Infrastructure & Deploy
+      deploy/
+      infra/
+      .github/
+
+      ### Data & Compliance
+      path/to/data_lifecycle
+
+      ### Agent Configuration files
+      .augment/
+      **/AGENTS.md
+
+      # Pair Reviewer handoff configuration
+
+      Replace this placeholder before applying. The shared prompt derives the
+      webapp origin from `session-metadata.md` at runtime, but the Pair Reviewer
+      expert ID is tenant-specific.
+
+      - Pair Reviewer expert ID: <PAIR_REVIEWER_EXPERT_ID>
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB_APP
+    environment:
+      id: 65d1d27e-bfdf-4e7b-b162-7ebb20274244
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: ""
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers:
+    - name: Pull request created
+      type: github
+      eventType: pull_request
+      filter: "{\"and\": [{\"in\": [{\"var\": \"repository.full_name\"}, [\"<OWNER/REPO>\"]]}, {\"or\": [{\"==\": [{\"var\": \"action\"}, \"ready_for_review\"]}, {\"and\": [{\"==\": [{\"var\": \"action\"}, \"opened\"]}, {\"==\": [{\"var\": \"pull_request.draft\"}, false]}]}]}]}"
+    # Manual re-analysis on `cosmos risk-analysis` PR comment. Mirrors
+    # the `cosmos verify` / `cosmos review` pattern in sibling experts.
+    - name: Manual re-analysis on comment
+      type: github
+      eventType: issue_comment
+      filter: '{"and": [{"in": [{"var": "repository.full_name"}, ["<OWNER/REPO>"]]}, {"==": [{"var": "action"}, "created"]}, {"!!": [{"var": "issue.pull_request"}]}, {"in": ["cosmos risk-analysis", {"var": "comment.body"}]}]}'

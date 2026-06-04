@@ -1,0 +1,295 @@
+# End-to-End Verifier (single-shot e2e/integration verifier for one PR)
+#
+# Triggers, response surfaces, and setup preconditions are defined in
+# the structured `spec:` block below. The verdict comment is always
+# POSTed fresh, never PATCHed in place — see the verdict-comment skill.
+#
+# # When to use this template
+#
+# Use it when:
+# - You want to automatically verify PRs against a deployed system (API,
+#   web service, CLI, mobile, etc.) and post results on GitHub.
+# - You have a safe test environment where the verifier can deploy
+#   changes if needed (personal dev namespace, staging, sandbox, etc.).
+#
+# # Before adopting this template
+#
+# Fill in the required setup preconditions (discovered during Advisor
+# onboarding or by direct team knowledge):
+#
+# 1. **Surfaces to verify** (UI/browser, API, CLI, logs, mobile, etc.)
+# 2. **Toolchain** the verifier needs on PATH in the environment image
+#    (language runtimes, browsers, CLIs your project's test suites depend on)
+# 3. **Secrets** wired into Secrets Manager for each surface (names only,
+#    never commit values) — e.g. TEST_USER_LOGIN, API_KEY_STAGING
+# 4. **Safe deploy target** where the verifier may deploy test changes
+#    when the proof path requires it (personal dev namespace, staging
+#    preview URL, ephemeral environment, sandbox tenant). Never production
+#    or shared environments.
+#
+# Document these in the verifier's playbook file:
+# `org/experts/verification/playbook/{owner}/{repo}.md`. See knowledgebase
+# `skills/verification/vfs-and-playbooks.md` for the file format
+# (`## Setup` / `## Exercise` / `## Teardown` / `## Notes`).
+#
+# The system prompt body lives at knowledgebase
+# `expert-templates/prompts/end-to-end-verifier.md` and is pulled in via
+# `<include>`. Core verifier skills (`e2e-scope`, `vfs-and-playbooks`,
+# `secret-redaction`, `plan-selection`, `verdict-comment`,
+# `cosmos-hosted-artifacts`) and the
+# verifier-specific memory bindings (`verification-load-memory`,
+# `verification-feedback-capture`) ship as committed knowledgebase files
+# under `skills/verification/` and are resolved from this repo at
+# session start — adopters do not need to seed tenant VFS for the bundle
+# to apply. End-of-run curation and pruning use the generic memory skills
+# (knowledgebase `skills/memory/curate-knowledge.md` and
+# `skills/memory/prune-and-compact.md`) directly, bound to
+# `TEAM=verification` and `SCOPE={owner}/{repo}` via the verifier
+# prompt's context block. The verifier owns three tenant-scope files per
+# repo: a human-edited playbook at
+# `org/experts/verification/playbook/{owner}/{repo}.md` (verifier
+# read-only — never written), an append-only breadcrumb file at
+# `org/experts/verification/breadcrumbs/{owner}/{repo}.md`, and an
+# auto-curated knowledge file at
+# `org/experts/verification/knowledge/{owner}/{repo}.md` (whole-file
+# rewrite from breadcrumbs by the generic curate-knowledge skill, pruned
+# in place by prune-and-compact). The verifier itself tolerates a
+# missing playbook at runtime (plan selection falls through to the
+# next priority — PR body, memory, broader-ask, bounded investigation),
+# but Advisor-mediated wiring seeds the playbook before enabling the
+# trigger; see step 5 in "Before applying" below.
+#
+# # Before applying
+#
+# Verifier sessions consume the configured environment image and the
+# Secrets Manager state at boot — they do not install tooling or mint
+# credentials at session start. Walk the operator through the steps
+# below before `apply`. These are recommendations, not hard gates;
+# when something is unknown, prefer to pause and ask.
+#
+# 1. **Discover the customer's stack before asking anything else.**
+#    Do not assume any cloud, orchestrator, build system, language,
+#    or testing tool — most customers are not on GCP, many do not
+#    use Kubernetes, and the rest of the stack varies just as
+#    widely. Lead with open questions and let the answers shape
+#    every later question. Useful prompts:
+#      - *"Which verification surfaces should this expert cover —
+#        UI/browser, HTTP/RPC API, CLI/TUI, logs from the running
+#        system, a deployed target, mobile/desktop, async/webhook,
+#        something else?"*
+#      - *"What is the project's primary language and toolchain,
+#        and which build / test / package commands do humans
+#        actually run to exercise the change?"*
+#      - *"Where does the code run when you test it end-to-end — a
+#        local process, a container, a hosted cloud (which one?),
+#        an on-prem cluster, a managed PaaS, a device, none of the
+#        above?"*
+#      - *"Which CLI tools, SDKs, browsers, or services does that
+#        path need? Anything in-house or unusual?"*
+#    Record the operator's answers — they drive steps 2 and 3.
+#
+# 2. **Confirm the environment image has the tooling the customer
+#    actually named.** The verifier runs whatever is on `PATH` in
+#    the configured `<ENVIRONMENT_ID>`; it does not install tooling
+#    at session start. For each item the operator listed in step 1,
+#    confirm the corresponding binary, SDK, or browser is present
+#    in the image. Do not check for tools the operator did not
+#    name. If anything required is missing, rebuild the environment
+#    with a provision script per `guides/cloud/environments.md`
+#    before applying.
+#
+# 3. **Confirm auth and secrets are wired into Secrets Manager for
+#    the surfaces from step 1, using the operator's vocabulary.**
+#    User/tenant secrets are managed on the webapp `/secrets` page
+#    (or via `auggie cloud secret`) and auto-inject into the VM as
+#    env vars or file mounts per `guides/secrets-and-access.md`.
+#    Walk through the surfaces the operator named, one at a time;
+#    skip the rest. Sample shapes — substitute the operator's
+#    actual stack throughout, do not paste these verbatim:
+#      - *"For the {UI / API / CLI / …} surface, what credentials
+#        does an end-to-end run need (test account login, API key,
+#        bearer token, mTLS cert, signed cookie, …)? Are those
+#        already in Secrets Manager, and under what names?"*
+#      - *"If the surface runs against a hosted environment (cloud,
+#        cluster, PaaS, device farm, …), which one, and what
+#        credential shape does it use ({cloud}-issued key, IAM
+#        role, service principal, kubeconfig file, SSH key,
+#        device-farm token, …)? Is that credential mounted as an
+#        env var or as a file secret (`augment:mount_point` tag),
+#        and which context / project / account name should the
+#        verifier use?"*
+#      - *"If the surface reads logs or metrics, from which
+#        provider ({operator's actual observability stack}), and is
+#        the matching read-only credential already in Secrets
+#        Manager?"*
+#      - *"When the proof path requires a deploy, which target is
+#        safe to deploy into — a per-user namespace, preview URL,
+#        ephemeral environment, sandbox tenant, …?"* The prompt
+#        declines deploys without a named safe target and never
+#        touches production, staging, shared, or another user's
+#        environment.
+#    If the operator isn't sure for any of these, treat the
+#    corresponding surface as out of scope for now or pause and
+#    follow up. Never paste secret values into this bundle, the
+#    prompt body, PR or Slack posts, VFS, or memory — the
+#    prompt's secret-redaction and cleanup-side-effects skills are
+#    binding (already wired into the prompt body via `<include>`).
+#
+# 4. **Fill in the placeholders below.**
+#
+# | Placeholder        | Where                                          |
+# |--------------------|------------------------------------------------|
+# | `<ENVIRONMENT_ID>` | `spec.expert.environment.id`                   |
+# | `<OWNER/REPO>`     | GitHub `pull_request` and `issue_comment`      |
+# |                    | trigger filters — replace with the exact repo  |
+# |                    | full name (for example `acme/web-app`).        |
+# | `<CHANNEL_ID>`     | Slack trigger filter — delete the trigger if   |
+# |                    | the bot should not listen on a Slack channel.  |
+#
+# 5. **Seed the verifier's playbook for each repo in the trigger
+#    filter** before enabling the `pull_request` trigger. The
+#    playbook write is a hard precondition: do not enable the
+#    trigger and do not declare verifier setup complete until
+#    `org/experts/verification/playbook/{owner}/{repo}.md` exists
+#    for every `{owner}/{repo}` named in the trigger's
+#    `repository.full_name` filter (one file per repo; if the `in`
+#    list carries multiple repos, run this loop once per repo). If
+#    the operator declines to seed, leave the trigger disabled and
+#    surface that explicitly — never silently skip.
+#
+#    The questionnaire IS the playbook draft — write each section
+#    as the answer comes in, do not collect answers in prose and
+#    translate later. Walk the operator through the four reserved
+#    sections in order, in their vocabulary (no Cosmos jargon),
+#    reusing the discovery prompts from steps 1–3 above for
+#    question content:
+#      - `## Setup` — what brings the code under test up (deploy
+#        command, build, environment image expectations, secret
+#        names already wired, dev-target name). Required.
+#      - `## Exercise` — the e2e/integration commands or surface
+#        invocations that prove the change. Required.
+#      - `## Teardown` — cleanup steps if any. Optional; write the
+#        heading with `(none)` if there's nothing.
+#      - `## Notes` — gotchas, discriminators, infra quirks every
+#        run should preload. Optional; write `(none)` if empty.
+#
+#    Always emit every `##` heading even when an optional section
+#    is empty. These four titles are reserved for this playbook
+#    file and must not be reused by other verifier-owned files
+#    (the auto-curated knowledge file uses different titles such
+#    as `## Setup notes`, `## Known flakes`, or path-glob
+#    headings). Per-surface sub-sections one level deeper
+#    (`### api`, `### web`, …) are allowed inside `## Setup` /
+#    `## Exercise` when the repo has distinct surfaces — at
+#    runtime the verifier picks scopes whose declared path
+#    prefixes match the PR's changed files.
+#
+#    After the four sections have content, summarize the
+#    assembled Markdown back to the operator in one block and ask
+#    via `ask-user` for an explicit go before writing. Three
+#    options: "Write it" (proceed), "Let me edit first" (accept
+#    the edited Markdown verbatim and write that), "Don't seed
+#    yet — leave the trigger disabled" (abort and surface the
+#    disabled state).
+#
+#    On go, create the parent directory and write to
+#    `org/experts/verification/playbook/{owner}/{repo}.md`. The
+#    verifier itself never writes to this file — it loads it
+#    read-only on every run. Future updates flow through the
+#    operator (or another Advisor session), never through the
+#    verifier.
+#
+#    Self-check (required before enabling the trigger): read the
+#    file back and report one line per repo to the operator. Use
+#    `✓` only if the section has substantive content; use
+#    `(empty)` for optional sections the operator left blank.
+#    Example output for two repos — first had all four sections
+#    filled, second left the optional sections blank:
+#
+#        Seeded playbook: org/experts/verification/playbook/acme/api.md — ✓ Setup, ✓ Exercise, ✓ Teardown, ✓ Notes
+#        Seeded playbook: org/experts/verification/playbook/acme/web.md — ✓ Setup, ✓ Exercise, (empty) Teardown, (empty) Notes
+#
+#    If `## Setup` or `## Exercise` is `(empty)`, the precondition
+#    is not met — do not enable the trigger and re-enter the
+#    questionnaire for that repo.
+#
+#    See knowledgebase `skills/verification/vfs-and-playbooks.md`
+#    for the broader file-ownership contract across the
+#    verifier's three per-repo memory files (playbook,
+#    breadcrumbs, knowledge).
+
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: end-to-end-verifier
+spec:
+  expert:
+    displayName: End-to-End Verifier
+    description: Exercises the feature in your PR and posts results (and screenshots) to GitHub.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/end-to-end-verifier.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB_APP
+      - SLACK
+    environment:
+      id: <ENVIRONMENT_ID>
+      resources:
+        cpuCores: 4
+        memoryMib: 8192
+    initialMessages: []
+    userInstructions: |-
+      Paste a GitHub PR URL into the chat box to verify a PR on demand.
+      The expert also runs automatically when a fresh PR is opened or
+      marked ready for review, when a PR comment starts with `cosmos
+      verify`, or when the Augment bot is @-mentioned in the configured
+      Slack channel with a GitHub PR URL.
+
+      Each session verifies one PR end-to-end (checkout → setup → exercise
+      → proof bundle), posts a fresh verdict comment back on the PR, and
+      terminates.
+
+      **Setup preconditions** — see the onboarding header in this bundle
+      file for setup preconditions (surfaces, toolchain, secrets, deploy
+      target), or run the Advisor for interactive walkthrough.
+    placeholderText: GitHub PR URL
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers:
+    # GitHub trigger: a fresh pull request that is ready for human review —
+    # either opened directly as a non-draft PR or moved out of draft via
+    # `ready_for_review`. Mirrors the canonical "PR created" filter used by
+    # other tenant-visibility GitHub experts (see pr-risk-analyzer).
+    - name: pr-created
+      type: github
+      eventType: pull_request
+      filter: '{"and": [{"in": [{"var": "repository.full_name"}, ["<OWNER/REPO>"]]}, {"or": [{"==": [{"var": "action"}, "ready_for_review"]}, {"and": [{"==": [{"var": "action"}, "opened"]}, {"==": [{"var": "pull_request.draft"}, false]}]}]}]}'
+    # GitHub trigger: any new PR comment whose body contains the
+    # `cosmos verify` invocation. The verifier skill set treats the comment
+    # author as the requester and the PR as `pr_url`.
+    - name: pr-comment-cosmos-verify
+      type: github
+      eventType: issue_comment
+      filter: |-
+        {"and": [
+          {"in": [{"var": "repository.full_name"}, ["<OWNER/REPO>"]]},
+          {"==": [{"var": "action"}, "created"]},
+          {"!!": [{"var": "issue.pull_request"}]},
+          {"in": ["cosmos verify", {"var": "comment.body"}]}
+        ]}
+    # Slack trigger: an @-mention of the Augment bot in the configured
+    # channel. The verifier extracts the first GitHub PR URL from the
+    # message text or surrounding thread; if none is present it asks once
+    # on the originating thread and stops. Delete this trigger if GitHub
+    # is the only entry point for your team.
+    - name: slack-app-mention
+      type: slack
+      eventType: app_mention
+      filter: |-
+        {"and": [
+          {"==": [{"var": "event.channel"}, "<CHANNEL_ID>"]},
+          {"==": [{"var": "event.type"}, "app_mention"]}
+        ]}

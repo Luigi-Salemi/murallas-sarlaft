@@ -1,0 +1,91 @@
+# MR Risk Analyzer (GitLab) template.
+#
+# Triages a GitLab MR as rubber-stamp-safe (approve) or needing a focused Pair
+# Review (Human Input Needed comment with handoff links). Shares the
+# platform-neutral rubric (`kb://skills/code-review/risk-analysis-core.md`) with
+# the GitHub PR Risk Analyzer; only the GitLab surface mechanics differ.
+#
+# Before applying:
+#   1. Create/apply a GitLab environment using `gitlab-cloud.yaml.template`;
+#      substitute its environment ID for `<GITLAB_ENVIRONMENT_ID>` below.
+#      See `guides/cloud/gitlab-environment-setup.md`.
+#   2. If you run the GitLab Pair Reviewer, apply `mr-pair-reviewer.yaml.template`
+#      first, then paste its expert ID into `<PAIR_REVIEWER_GITLAB_EXPERT_ID>` in
+#      the system prompt below. If you do not run it, delete the Human Input
+#      Needed handoff links from the rubric output instead of filling the placeholder.
+#   3. Edit the opted-out repos / sub-directories list in the system prompt to
+#      match your org's sensitive areas.
+#   4. GitLab has no `type: github` trigger equivalent. To run automatically,
+#      create a GitLab custom webhook (`auggie cloud webhook create --type gitlab`),
+#      configure it in the project (Merge request events + Comment events for the
+#      `cosmos risk-analysis` re-analysis path), and launch the expert from it.
+#      Runtime subscriptions filter by payload shape, not by webhook ID. Until
+#      that is wired, launch the expert manually with an MR URL.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: mr-risk-analyzer
+spec:
+  expert:
+    displayName: MR Risk Analyzer (GitLab)
+    description: Auto-triages a GitLab MR as rubber-stamp-safe or needing a focused Pair Review; re-analyzes on a `cosmos risk-analysis` MR note.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/mr-risk-analyzer.md" />
+
+      # Opted-out repos and sub-directories — always require full review
+
+      Edit this list for your repository. The categories below are the recommended pattern; replace the example paths with the sensitive areas of your codebase.
+
+      ## Opted-out repos (entire repo always requires review)
+      <GROUP>/<PROJECT_NAME>
+
+      ## Sub-directories in `<GROUP>/<MAIN_PROJECT>` that always require full review
+
+      ### Security & Trust
+      path/to/auth
+      path/to/security
+      path/to/secrets
+
+      ### Billing & Payments
+      path/to/billing
+
+      ### Access Control & Gateways
+      path/to/api_proxy
+      path/to/sandbox
+
+      ### Infrastructure & Deploy
+      deploy/
+      infra/
+      .gitlab/
+
+      ### Data & Compliance
+      path/to/data_lifecycle
+
+      ### Agent Configuration files
+      .augment/
+      **/AGENTS.md
+
+      # Pair Reviewer handoff configuration
+
+      Replace this placeholder before applying. The shared rubric derives the
+      webapp origin from `session-metadata.md` at runtime, but the Pair Reviewer
+      expert ID is tenant-specific.
+
+      - Pair Reviewer (GitLab) expert ID: <PAIR_REVIEWER_GITLAB_EXPERT_ID>
+    model: claude-opus-4-8
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - CUSTOM_WEBHOOK
+    environment:
+      id: <GITLAB_ENVIRONMENT_ID>
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: ""
+    placeholderText: GitLab MR URL
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers: []

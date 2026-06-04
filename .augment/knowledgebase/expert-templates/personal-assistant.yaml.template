@@ -1,0 +1,30 @@
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: personal-assistant
+spec:
+  expert:
+    displayName: Personal Assistant
+    description: Tracks your tasks across sessions and launches worker agents on your behalf.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/personal-assistant.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB
+      - LINEAR
+      - GITHUB_APP
+      - LINEAR_APP
+      - SLACK
+    environment:
+      id: <ENVIRONMENT_ID>
+    initialMessages: []
+    userInstructions: |-
+      Your persistent task tracker, agent dispatcher, and memory.
+      Tell it what to track or kick off — it remembers across sessions.
+    placeholderText: What should I track or kick off?
+    workerExpertIds: []
+    useAllExpertsAsWorkers: true
+  triggers: []

@@ -1,0 +1,48 @@
+# NOTE: The web app seeds this expert on first home-page mount via
+# clients/web/app/src/lib/client-cache/experts/default-expert-seeds.ts.
+# When you change displayName, description, model, capabilities, or
+# userInstructions here, update that file in lockstep. systemPrompt and
+# any kb:// includes resolve at session-start, so prompt-body edits do
+# not require a UI change. See clients/web/app/specs/default-experts-seeding.md.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: deep-code-reviewer-single-model
+  resourceVersion: 45
+spec:
+  expert:
+    id: c2175fd9-8f56-40cc-84d5-6de05b673de5
+    displayName: Deep Code Reviewer
+    description: Non-interactive line-by-line bug review; posts inline comments to GitHub.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/deep-code-reviewer.md" />
+    model: gpt-5-5 # If GPT 5.5 is unavailable, use Opus 4.8 (claude-opus-4-8).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB_APP
+      - LINEAR_APP
+      - SLACK
+    environment:
+      id: 65d1d27e-bfdf-4e7b-b162-7ebb20274244
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: |-
+      Paste a **GitHub PR URL**.
+
+      This is a **non-interactive** deep review: the agent reviews the PR and posts inline bug-finding comments on behalf of the Augment bot. There is no human-in-the-loop — the agent does not consult you between phases.
+    placeholderText: GitHub PR URL
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers:
+    - name: Manual review on comment
+      type: github
+      eventType: issue_comment
+      filter: '{"and": [{"in": [{"var": "repository.full_name"}, ["<OWNER/REPO>"]]}, {"==": [{"var": "action"}, "created"]}, {"!!": [{"var": "issue.pull_request"}]}, {"or": [{"in": ["cosmos review", {"var": "comment.body"}]}, {"in": ["augment review", {"var": "comment.body"}]}]}]}'
+    - name: Pull request ready for review
+      type: github
+      eventType: pull_request
+      filter: '{"and": [{"in": [{"var": "repository.full_name"}, ["<OWNER/REPO>"]]}, {"or": [{"==": [{"var": "action"}, "ready_for_review"]}, {"and": [{"==": [{"var": "action"}, "opened"]}, {"==": [{"var": "pull_request.draft"}, false]}]}]}]}'

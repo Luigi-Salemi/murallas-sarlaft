@@ -1,0 +1,8 @@
+[TIMING] startup_script_start: 23ms
+[TIMING] modalshell_profile_installed: 129ms
+[TIMING] file_secrets_decoded: 218ms
+[TIMING] git_credentials_configured: 378ms
+[TIMING] hooks_bootstrapped: 561ms
+[TIMING] cli_ready: 634ms
+[TIMING] auggie_symlink_ensured: 729ms
+[TIMING] rg_symlink_ensured: 770ms

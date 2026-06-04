@@ -1,0 +1,44 @@
+# NOTE: The web app seeds this expert on first home-page mount via
+# clients/web/app/src/lib/client-cache/experts/default-expert-seeds.ts.
+# When you change displayName, description, model, capabilities, or
+# userInstructions here, update that file in lockstep. systemPrompt and
+# any kb:// includes resolve at session-start, so prompt-body edits do
+# not require a UI change. The seed references its hidden Status Watcher
+# by name, not by id, so workerExpertIds here can change without
+# touching the seed file — but the worker's displayName must stay in sync.
+# See clients/web/app/specs/default-experts-seeding.md.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: pr-author-github
+  resourceVersion: 32
+spec:
+  expert:
+    id: 82728b4a-f2b5-4815-84d1-5680e65b4a63
+    displayName: PR Author (GitHub)
+    description: Owns a GitHub PR from open through merge.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/pr-author.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB
+      - GITHUB_APP
+      - LINEAR_APP
+    environment:
+      id: 65d1d27e-bfdf-4e7b-b162-7ebb20274244
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: |-
+      Enter a **task description**, **Linear ticket**, or **existing GitHub PR link**
+
+      Agent will own the PR: implement changes, address any review comments, address merge conflicts and CI failures, etc.
+    placeholderText: Task description, Linear ticket URL, or GitHub PR URL
+    workerExpertIds:
+      - 78029b1e-530d-4370-990e-58f058498060
+    useAllExpertsAsWorkers: false
+  triggers: []

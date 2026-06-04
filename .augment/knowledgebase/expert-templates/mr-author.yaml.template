@@ -1,0 +1,43 @@
+# MR Author (GitLab) template.
+#
+# Before applying:
+#   1. Apply `mr-author-status-watcher-gitlab.yaml.template` and substitute its
+#      expert ID for `<MR_AUTHOR_STATUS_WATCHER_EXPERT_ID>` below.
+#   2. Create/apply a GitLab environment using `gitlab-cloud.yaml.template`;
+#      substitute its environment ID for `<GITLAB_ENVIRONMENT_ID>` below.
+#   3. If live GitLab events are desired, create a GitLab custom webhook
+#      (`auggie cloud webhook create --type gitlab`) and configure it in GitLab.
+#      Runtime subscriptions filter by payload shape, not by webhook ID, so no
+#      webhook ID is embedded in this bundle.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: mr-author
+spec:
+  expert:
+    displayName: MR Author (GitLab)
+    description: Owns a GitLab MR from open through merge.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/mr-author.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    autoCleanupOnIdle: false
+    capabilities:
+      - WEB_ACCESS
+      - CUSTOM_WEBHOOK
+    environment:
+      id: <GITLAB_ENVIRONMENT_ID>
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: |-
+      Enter a **task description** or **existing GitLab MR link**.
+
+      Agent will own the MR: implement changes, address review notes, fix pipeline failures, and resolve merge conflicts.
+    placeholderText: Task description or GitLab MR URL
+    workerExpertIds:
+      - <MR_AUTHOR_STATUS_WATCHER_EXPERT_ID>
+    useAllExpertsAsWorkers: false
+  triggers: []

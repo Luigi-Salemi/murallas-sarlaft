@@ -1,0 +1,35 @@
+# NOTE: The web app seeds this expert on first home-page mount via
+# clients/web/app/src/lib/client-cache/experts/default-expert-seeds.ts.
+# When you change displayName, description, model, capabilities,
+# userInstructions, or placeholderText here, update that file in lockstep. systemPrompt and
+# any kb:// includes resolve at session-start, so prompt-body edits do
+# not require a UI change. See clients/web/app/specs/default-experts-seeding.md.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: advisor
+spec:
+  expert:
+    displayName: Cosmos Advisor
+    description: Helps a team continuously deploy new Cosmos agents, tune the ones already running, and find what to automate next.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/advisor.md" />
+    model: claude-opus-4-8 # If Opus 4.8 is unavailable, use GPT 5.5 (gpt-5-5).
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - GITHUB
+      - LINEAR
+      - SLACK
+      - GITHUB_APP
+      - LINEAR_APP
+    environment:
+      id: <ENVIRONMENT_ID>
+    initialMessages: []
+    userInstructions: |-
+      **Tell me what you'd like to automate next.**
+
+      I help you configure new Cosmos experts and tune the ones already running on your PRs and tickets.
+    placeholderText: What would you like to automate?
+  triggers: []

@@ -1,0 +1,55 @@
+# PR Author Status Watcher
+#
+# Worker sub-agent for PR Author (GitHub). Not intended to be launched standalone.
+# Polls PR state, manages SHA-specific CI subscriptions, and reports to the PR Author
+# manager only when action is needed (CI failures, merge conflicts, activity state
+# transitions, merge gates passed).
+#
+# # Before adopting this template
+#
+# Apply this worker first, then look up its ID — produces the value
+# for `<PR_AUTHOR_STATUS_WATCHER_EXPERT_ID>` in `pr-author.yaml.template`:
+#
+# ```bash
+# auggie cloud expert apply -f pr-author-status-watcher.yaml.template
+# auggie cloud expert list --json | jq -r '.[] | select(.config.displayName == "PR Author Status Watcher") | .expertId'
+# # => ID to paste as <PR_AUTHOR_STATUS_WATCHER_EXPERT_ID> in pr-author.yaml.template
+# ```
+#
+# # Sync requirement
+#
+# NOTE: The web app seeds this hidden worker on first home-page mount via
+# clients/web/app/src/lib/client-cache/experts/default-expert-seeds.ts.
+# When you change displayName, description, model, capabilities,
+# userInstructions, or hidden here, update that file in lockstep.
+# systemPrompt and any kb:// includes resolve at session-start, so
+# prompt-body edits do not require a UI change. The PR Author seed
+# references this worker by displayName, so renaming it here will break
+# the seed's worker resolution unless the seed file is updated too.
+# See clients/web/app/specs/default-experts-seeding.md.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: pr-author-status-watcher
+spec:
+  expert:
+    displayName: PR Author Status Watcher
+    hidden: true
+    description: "Worker sub-agent for PR Author. Not intended to be launched standalone. Polls PR health, manages SHA-specific CI subscriptions, and reports to the PR Author manager only when action is needed (CI failures, merge conflicts, activity state transitions)."
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/pr-author-status-watcher.md" />
+    model: claude-haiku-4-5
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - GITHUB_APP
+    environment:
+      id: 65d1d27e-bfdf-4e7b-b162-7ebb20274244
+      resources:
+        cpuCores: 1
+        memoryMib: 2048
+    initialMessages: []
+    userInstructions: ""
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers: []

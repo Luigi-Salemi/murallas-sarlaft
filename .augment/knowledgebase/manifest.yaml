@@ -1,0 +1,945 @@
+version: "1.9.2"
+# NOTE: Agents reading this file should read README.md instead — it has a
+# "When to Consult This Knowledgebase" dispatch table that maps user
+# questions to the right page. This manifest is the machine-readable TOC.
+sections:
+  - name: Guides
+    path: guides/
+    description: Conceptual guides for Cosmos features and workflows
+    tags: [guides, reference, cloud]
+    files:
+      - path: guides/cloud/README.md
+        description: Index page for the Cosmos guide, split into focused pages.
+      - path: guides/cloud/self-service.md
+        description: Self-Service Orchestration — agents using the auggie cloud CLI.
+      - path: guides/cloud/experts.md
+        description: Expert configuration, CLI management, launch modes, deep links, versioning. Includes
+          the optional `spec.expert.hidden` flag that omits an expert from the webapp `/home` launcher
+          while leaving it invocable by ID, deep link, `worker-launch`, and triggers.
+      - path: guides/cloud/residents.md
+        description: Residents — long-lived agent sessions. A Resident pairs a configuration with at most
+          one durable agent session that the user explicitly starts and stops. Compared to Experts (templates
+          that spawn fresh sessions on demand), Residents are the "always-on assistant" shape. Not yet
+          available in any environment.
+      - path: guides/cloud/writing-expert-prompts.md
+        description: 15 prompt-engineering patterns extracted from production expert templates, including
+          composable skills via `<include src="kb://...">` / `vfs://...` directives (`inline` vs `lazy`
+          modes, `<prompt-module>` / `<lazy-prompt-module>` rendering, `auggie cloud prompt-module render`,
+          max-depth and cycle rules).
+      - path: guides/cloud/vfs.md
+        description: Virtual File System — persistent organization/user/space filesystems (the `space`
+          scope is shared across agents in the active Cosmos Space and is dev/staging-only; the `org`
+          scope was previously called `tenant`; a `tenant -> org` symlink keeps old paths working), cross-agent
+          state, version history.
+      - path: guides/cloud/workers.md
+        description: Manager-worker pattern, delegating to experts, coordinator/router/specialist roles,
+          STOP-and-Wait. Documents the platform-owned descendant cascade on archive and delete (with `code_review_use_poseidon_archive_cascade`
+          opt-in for the code_review family) and the manager-side stop rule for `terminate-session` (Manager
+          Stop Rule section) — required reading for any expert that uses `worker-launch`.
+      - path: guides/cloud/automations.md
+        description: Triggers (persistent, bundle-configured) and Subscriptions (agent-created, runtime).
+          Covers trigger types, JSONLogic filters, the `auggie cloud event list` iteration loop, the end-to-end
+          setup walkthrough, worked examples (auto-review-PR, scheduled status report), and the per-trigger
+          `autoCleanupOnIdle` auto-archive override.
+      - path: guides/cloud/capabilities.md
+        description: Builtin capabilities, OAuth vs App integrations, available integrations, and the
+          boundary that Slack, Linear, and GitHub setup requests should route to the web UI because a
+          human must complete the browser OAuth / app-install flow.
+      - path: guides/cloud/environments.md
+        description: VM runtime — base images, resources, repos, snapshot/restore, refresh, visibility,
+          and the `auggie cloud environment set-default / unset-default / get-default` CLI subcommands
+          (`--scope personal|team`) that drive the home/CLI vs trigger vs worker environment-resolution
+          cascade (per-launch override → expert-baked env → user default → team default → system default).
+      - path: guides/cloud/gitlab-environment-setup.md
+        description: GitLab custom environment setup — `glab` install, `gitlab-token` secret, `.netrc`
+          auth, VM startup clone/fetch, clean Git remotes, and custom-webhook routing for MR experts.
+      - path: guides/cloud/sessions.md
+        description: Session lifecycle state machine, archived flag, visibility/sharing, session metadata
+          rule, `auggie cloud session create --message` for seeding an initial user turn at launch time.
+      - path: guides/operational-reference.md
+        description: VM lifecycle, quotas, stuck agents, capability→tool mapping, troubleshooting.
+      - path: guides/webapp.md
+        description: User-facing tour of the Cosmos webapp (/app). Pages, sidebar layout (including the
+          top-level Files group → /vfs/org and /vfs/user), command palette, verified keyboard shortcuts,
+          the redesigned session-detail workspace shell (pinned Agent / Terminal / Files / Changes / Subscriptions
+          tabs with a fixed-width Details right rail), the standalone /vfs/<scope> Files page, and a "how
+          do I…" lookup table for common UI tasks, including the inline trigger editor's "Auto-archive
+          sessions created by this trigger" toggle. Read this when a user asks how to do something in
+          the browser UI.
+      - path: guides/secrets-and-access.md
+        description: User vs tenant secrets, auto-install into VMs, file-mount tags, base64 encoding,
+          the `auggie cloud secret list/get/set/delete/migrate/import` CLI suite, the dedicated `/secrets`
+          webapp page (sidebar Configuration → Secrets), session visibility (SHARED/PRIVATE), session
+          sharing via OLAC, the current state of access control for experts and MCP (backend OLAC enforcement
+          on expert RPCs is shipped; per-recipient expert sharing UI is shipped via the Share expert button
+          / `ShareExpertDialog` using generic OLAC `grantObjectRole` / `revokeObjectRole` RPCs, though
+          no dedicated `ShareExpert` RPC or CLI exists yet; tenant-scoped experts can only reference tenant-scoped
+          MCPs; MCP registry entries remain coarse `user`/`tenant` scope only), and per-recipient OLAC
+          sharing for environments via the EnvironmentDetailPage Share button. Read this when a user asks
+          about credentials, secrets, or who-can-see-what.
+      - path: guides/compute-models.md
+        description: Cloud VM vs Daemon comparison, the `auggie daemon` command, how MCP servers reach
+          Cosmos agents today (backend MCP registry as the default plus local `--provide-tools` for unregistered
+          servers), the `auggie cloud mcp init/validate/diff/apply/list/get/export/delete` subcommands
+          and McpServerBundle YAML schema (transports stdio/sse/http, `$augment-<secret>` references,
+          scope user/tenant, shared-expert / shared-MCP scope rule), and how repo-level Skills (.augment/skills/)
+          complement MCP. Read this when a user asks about running agents locally, attaching MCP tools,
+          managing the MCP registry, or teaching the agent new workflows.
+      - path: guides/cloud/expert-memory.md
+        description: Standard two-file layout for expert-team memory — separate `breadcrumbs/` (append-only
+          notes) and `knowledge/` (curated) trees per scope, with a single owning expert that appends
+          to `breadcrumbs/{scope}.md` on each event and rewrites `knowledge/{scope}.md` whole-file from
+          the current breadcrumb set via the shared `curate-knowledge` skill (used end-to-end by the Code
+          Review Memory Manager). Includes the default memory prompt, the source-weighted curation rules,
+          the probabilistic breadcrumb compaction rule, and the three handoff rules (notes ≠ curated,
+          hand off via notes, each team curates its own).
+  - name: Expert Templates
+    path: expert-templates/
+    description: Ready-to-use expert configurations for common development workflows
+    tags: [experts, templates, workflows]
+    files:
+      - path: expert-templates/README.md
+        description: How to apply, customize, and template these bundles. Placeholder reference, canonical
+          apply workflow, and the `spec.expert.hidden` flag pattern for worker-only / auto-triggered experts
+          that should not appear in the webapp `/home` launcher.
+      - path: expert-templates/prompts/
+        description: Full system-prompt bodies for expert templates. Each template's `systemPrompt` is
+          a shared `<include src="kb://expert-templates/prompts/<template-name>.md" />` reference into
+          this directory; customer-owned customization sections stay inline in the YAML after the include.
+      - path: expert-templates/gitlab-cloud.yaml.template
+        description: GitLab Cloud environment bundle template. Configures non-secret GitLab defaults and
+          is rebuilt with the GitLab provision and VM startup scripts.
+      - path: expert-templates/gitlab-cloud-provision.sh
+        description: GitLab Cloud environment provision script. Installs `glab` during image rebuild without
+          reading GitLab credentials or cloning repos into the shared snapshot.
+      - path: expert-templates/gitlab-cloud-vm-startup.sh
+        description: GitLab Cloud VM startup script. Uses `$GITLAB_TOKEN` from Secrets to write `.netrc`
+          and clone/fetch configured GitLab repos with token-free remote URLs at VM boot.
+      - path: expert-templates/pr-author.yaml.template
+        description: Creates, monitors, and maintains GitHub PRs end-to-end. Receives CI failure webhooks
+          in real time and delegates periodic status polling to a lightweight worker.
+      - path: expert-templates/pr-author-status-watcher.yaml.template
+        description: Worker sub-agent for PR Author. Polls PR state, manages SHA-specific CI subscriptions,
+          reports to manager only when action is needed.
+      - path: expert-templates/mr-author.yaml.template
+        description: Creates, monitors, and maintains GitLab MRs end-to-end. Uses the GitLab Cloud environment,
+          responds to notes, fixes pipeline failures and merge conflicts, and delegates status polling
+          to the MR Author Status Watcher (GitLab) worker.
+      - path: expert-templates/mr-author-status-watcher-gitlab.yaml.template
+        description: Hidden worker for MR Author (GitLab). Polls MR state, manages SHA-specific GitLab
+          pipeline subscriptions, and reports to the manager only when action is needed.
+      - path: expert-templates/prompts/mr-author.md
+        description: System-prompt body for MR Author (GitLab). Pulled into `mr-author.yaml.template`
+          via `<include>` and composes the GitLab MR-monitor skills.
+      - path: expert-templates/prompts/mr-author-status-watcher-gitlab.md
+        description: System-prompt body for the MR Author Status Watcher (GitLab). Pulled into `mr-author-status-watcher-gitlab.yaml.template`
+          via `<include>` and composes the GitLab MR-poll skills.
+      - path: expert-templates/verify-gitlab-env.yaml.template
+        description: Hidden, tenant-visible one-shot verifier for the GitLab Cloud environment. The Advisor
+          launches a session on it with the substituted verification commands plus pass criteria as the
+          first user message, polls `auggie cloud session sync` until the transcript contains a `VERIFICATION_RESULT:`
+          marker (PASS or FAIL), and gates the post-apply launch link on the marker.
+      - path: expert-templates/prompts/verify-gitlab-env.md
+        description: System-prompt body for the Verify GitLab Env expert. Pulled into `verify-gitlab-env.yaml.template`
+          via `<include>` and encodes the run-commands-verbatim / emit-`VERIFICATION_RESULT:` contract
+          the Advisor parses.
+      - path: expert-templates/pair-reviewer.yaml.template
+        description: Interactive intent-focused code review. Agent leads each phase; human is consulted
+          between phases for intent, history, and judgment the code cannot reveal.
+      - path: expert-templates/pr-risk-analyzer.yaml.template
+        description: Risk analysis triggered when a PR opens or is marked ready for review, or on a `cosmos
+          risk-analysis` PR comment. Rubber-stamps low-risk PRs (single approving review) or links the
+          rest to a Pair Reviewer session.
+      - path: expert-templates/deep-code-reviewer.yaml.template
+        description: Non-interactive Cosmos-native deep review (similar to the Augment Code Review Bot).
+          Fetches a PR, reviews every changed line, and posts inline severity-tagged comments directly
+          to GitHub with no human-in-the-loop.
+      - path: expert-templates/mr-deep-code-reviewer.yaml.template
+        description: GitLab counterpart of `deep-code-reviewer.yaml.template`. Non-interactive line-by-line
+          MR review that posts inline severity-tagged discussion notes via `glab`. Shares the neutral
+          rubric `skills/code-review/deep-review-core.md`; model `gpt-5-5` (backup `claude-opus-4-8`).
+      - path: expert-templates/prompts/mr-deep-code-reviewer.md
+        description: System-prompt body for Deep Code Reviewer (GitLab). Pulled into `mr-deep-code-reviewer.yaml.template`
+          via `<include>`; composes `skills/code-review/deep-review-core.md` with the GitLab surface skills
+          (post/clear-eyes-reaction, branch-checkout, scan-existing-comments, inline-comment-anchoring,
+          code-review/queue-and-submit-review).
+      - path: expert-templates/mr-risk-analyzer.yaml.template
+        description: GitLab counterpart of `pr-risk-analyzer.yaml.template`. Triages an MR as rubber-stamp-safe
+          (approve via `glab mr approve`) or needing a focused Pair Review; re-analyzes on a `cosmos risk-analysis`
+          MR note. Shares the neutral rubric `skills/code-review/risk-analysis-core.md`; model `claude-opus-4-8`.
+      - path: expert-templates/prompts/mr-risk-analyzer.md
+        description: System-prompt body for MR Risk Analyzer (GitLab). Pulled into `mr-risk-analyzer.yaml.template`
+          via `<include>`; composes `skills/code-review/risk-analysis-core.md` with the GitLab comment-header,
+          self-detection, and approve/revoke mechanics.
+      - path: expert-templates/mr-pair-reviewer.yaml.template
+        description: GitLab counterpart of `pair-reviewer.yaml.template`. Interactive AI+human MR review
+          where the agent leads each phase and the human is consulted between phases. Shares the neutral
+          contract `skills/code-review/pair-review-core.md`; model `claude-opus-4-8`.
+      - path: expert-templates/prompts/mr-pair-reviewer.md
+        description: System-prompt body for Pair Reviewer (GitLab). Pulled into `mr-pair-reviewer.yaml.template`
+          via `<include>`; composes `skills/code-review/pair-review-core.md` with the GitLab branch-checkout,
+          scan-existing-comments, queue-and-submit-review, approval-fallback, and comment-header skills.
+      - path: expert-templates/code-review-memory-manager.yaml.template
+        description: Triggered on PR close/merge. Owns the code-review team's per-repo memory end-to-end
+          — appends a distilled PR-summary section to `experts/code-review/breadcrumbs/{owner}/{repo}.md`
+          (with read-back retry against concurrent collectors) and rewrites `experts/code-review/knowledge/{owner}/{repo}.md`
+          from the current breadcrumb set via the shared `curate-knowledge` skill (single whole-file rewrite).
+          Source-weighted thresholds (`human-feedback` ≫ `human-comment` ≫ `agent-inferred`/`human-reaction`/`pr-outcome`)
+          gate visibility. Replaces the previous Code Review Data Collector.
+      - path: expert-templates/advisor.yaml.template
+        description: Advisor expert. Helps a team continuously deploy new Cosmos agents, tune the ones
+          already running, and find what to automate next. Four recurring phases (Dependencies → Environment
+          → Expert → Analyze); resumes on whichever phase still has open work. Reads `advisor/playbook.md`,
+          Advisor breadcrumbs, lazy-includes `advisor/build-expert.md` so it can design and create bespoke
+          experts inline when the catalog doesn't fit, and auto-captures reusable learnings with a brief
+          heads-up. System prompt body lives at `expert-templates/prompts/advisor.md` and is pulled in
+          via `<include>`.
+      - path: expert-templates/cosmos-analyst.yaml.template
+        description: Cosmos Analyst expert. Measures GitHub PR throughput trends for a Cosmos cohort before
+          and after adoption. The default visuals are trend charts; total cohort trend always, plus per-engineer
+          trend small multiples only when the resolved cohort has 20 engineers or fewer. System prompt
+          body lives at `expert-templates/prompts/cosmos-analyst.md` and is pulled in via `<include>`.
+      - path: expert-templates/prompts/advisor.md
+        description: System-prompt body for the Advisor expert. Pulled into `advisor.yaml.template` via
+          `<include src="kb://expert-templates/prompts/advisor.md" />`.
+      - path: expert-templates/prompts/cosmos-analyst.md
+        description: System-prompt body for the Cosmos Analyst expert. Pulled into `cosmos-analyst.yaml.template`
+          via `<include src="kb://expert-templates/prompts/cosmos-analyst.md" />` and composes the GitHub
+          PR analytics reporting skill for trend-chart-first before/after analyses.
+      - path: expert-templates/prompts/expert-factory.md
+        description: Back-compat redirect stub for already-deployed standalone Expert Factory experts.
+          A single `<include src="kb://advisor/build-expert.md" />` line that pulls in the new conversational
+          build-expert skill body so existing experts keep working without a redeploy. New tenants seed
+          Advisor only; Advisor lazy-includes the same skill.
+      - path: expert-templates/feedback-triager.yaml.template
+        description: "One-session-per-thread Feedback Triager (Slack). Watches a single channel, claims
+          each fresh root with a `:eyes:` reaction lock, opens one in-session subscription that covers
+          replies/edits/deletes/mentions, and routes recovery `app_mention`s. The lifecycle includes a
+          research-and-sufficiency check that can answer simple questions from the codebase (settling
+          the thread without filing a ticket) or ask one focused clarifying question before classifying,
+          and the ticket action contract now stops at filing the downstream ticket. On an explicit human
+          ask in the thread (event-loop clause `f`) it dispatches into Fixer mode, which lazy-includes
+          the shared `fix-via-pr-author` skill to launch a configured `<PR_AUTHOR_EXPERT_ID>` PR/MR Author
+          worker via the `worker-launch` agent tool (no `auggie cloud` CLI invocations). Channel ID, downstream
+          ticket capability, self-detection marker, default behavior, and (optionally) Fixer-mode defaults
+          are placeholders; classification and ticket-creation steps are left as `<TODO>` markers in the
+          system prompt for the adopting bundle to fill in."
+      - path: expert-templates/incident-investigator.yaml.template
+        description: Single Incident Investigator (Slack) expert for both fixed alert channels and ad-hoc
+          incident channels. Alert-thread mode watches configured alert channels for incident-management-platform
+          alerts and top-level incident messages, posts root-cause analysis in-thread, subscribes to follow-ups,
+          and launches PR Author only after explicit human option-selection. Stationed-channel mode launches
+          manually from a Slack channel/message link or automatically on `channel_created`, watches every
+          incident-like top-level message and engaged-thread follow-up in that channel, and stays stationed
+          until a human types `stop`. In both modes, on resolution it posts an in-thread post-resolution
+          summary and suggests a formal post-mortem write-up. Platform-agnostic — inline blocks configure
+          incident platform shape, bot ids, alert channels, metrics/log skills, infrastructure context,
+          ownership routing, and optional post-mortem report format. System prompt body lives at `expert-templates/prompts/incident-investigator.md`
+          and composes the shared incident-investigator skills with Slack subscribe/respond, PR Author
+          handoff, and mrkdwn-formatting guidance.
+      - path: expert-templates/prompts/incident-investigator.md
+        description: System-prompt body for the unified Incident Investigator (Slack) expert. Pulled into
+          `incident-investigator.yaml.template` via `<include src="kb://expert-templates/prompts/incident-investigator.md"
+          />`. Defines alert-thread mode for fixed alert channels and stationed-channel mode for manual
+          / `channel_created` incident channels, then composes the shared incident-investigator triage,
+          investigate, post-structure, escalation-routing, fix-via-PR, post-resolution-summary, stop-condition,
+          deduplication, memory, Slack subscribe/respond, and mrkdwn-formatting skills.
+      - path: expert-templates/end-to-end-verifier.yaml.template
+        description: Single-shot e2e/integration verifier for a GitHub PR. Four triggers (a fresh GitHub
+          pull request opened or marked ready for review, a GitHub PR comment starting with `cosmos verify`,
+          a Slack `app_mention` carrying a PR URL, or a PR-URL launch — a session whose first user message
+          is a GitHub PR URL) → one session that resolves the PR, runs a tailored proof check against
+          a running system, posts a fresh verdict comment on the PR plus a short verdict on the originating
+          Slack thread when applicable, auto-captures verification learnings to tenant memory at end-of-run,
+          then terminates. System prompt body lives at `expert-templates/prompts/end-to-end-verifier.md`
+          and is pulled in via `<include>`; core verifier skills and memory bindings ship as committed
+          knowledgebase files under `skills/verification/` and resolve from this repo at session start,
+          so adopters do not need to seed tenant VFS for the bundle to apply. The verifier owns three
+          tenant-scope files per repo — a human-edited playbook at `org/experts/verification/playbook/{owner}/{repo}.md`
+          (read-only for the verifier), an append-only breadcrumb file at `org/experts/verification/breadcrumbs/{owner}/{repo}.md`,
+          and an auto-curated knowledge file at `org/experts/verification/knowledge/{owner}/{repo}.md`
+          (rewritten end-of-run by the generic `curate-knowledge` and `prune-and-compact` skills bound
+          to `TEAM=verification` and `SCOPE={owner}/{repo}`). The playbook file is optional. Placeholders
+          are environment ID, repo full name (`<OWNER/REPO>`) for the GitHub trigger filters, and Slack
+          channel ID for the optional Slack trigger.
+      - path: expert-templates/prompts/end-to-end-verifier.md
+        description: System-prompt body for the End-to-End Verifier expert. Pulled into `end-to-end-verifier.yaml.template`
+          via an `<include>` directive. Composes the committed verification skills under `skills/verification/`,
+          the verifier-specific memory bindings (`verification-load-memory`, `verification-feedback-capture`),
+          the generic memory skills (`curate-knowledge`, `prune-and-compact`) bound to `TEAM=verification`
+          / `SCOPE={owner}/{repo}` via the prompt's context block, and shared GitHub, Slack, and hygiene
+          skills.
+      - path: expert-templates/personal-assistant.yaml.template
+        description: Personal Assistant expert. User's persistent task tracker, agent dispatcher, and
+          cross-session memory. Reads/writes `tasks.md` under user-scoped VFS, opens every session with
+          the current Active task list and an offer to track more, dispatches any deployed expert as a
+          worker (sets `useAllExpertsAsWorkers` to `true`), and DMs the user on Slack only after explicit
+          per-category opt-in (preferences cached in `personal-assistant/knowledge/global.md`). Memory
+          skills are bound with `TEAM=personal-assistant` and `SCOPE=global`, with paths overridden from
+          tenant scope to user scope. System prompt body lives at `expert-templates/prompts/personal-assistant.md`
+          and is pulled in via `<include>`.
+      - path: expert-templates/prompts/personal-assistant.md
+        description: System-prompt body for the Personal Assistant expert. Pulled into `personal-assistant.yaml.template`
+          via `<include src="kb://expert-templates/prompts/personal-assistant.md" />`.
+      - path: expert-templates/backlog-dispatcher.yaml.template
+        description: Scheduled triage agent. Every 3 hours, scans configured GitHub repos and Linear teams
+          (newest-first) for open tickets that have settled, applies a single judgement-based rubric to
+          each, and either dispatches the `PR Author (GitHub)` expert as a worker (dispatch path, label
+          `cosmos-dispatched`) or skips the ticket (skip path, label `cosmos-skipped`). Per-ticket triage
+          state lives in three labels (`cosmos-dispatched`, `cosmos-skipped`, `cosmos-dispatch-failed`);
+          per-PR state lives in VFS under `PR_REGISTRY_PATH` (one YAML per dispatcher-owned PR) so the
+          dispatcher can cap concurrent open PRs at `MAX_OPEN_PRS` (default 10) and auto-close PRs idle
+          for `STALE_PR_DAYS` (default 7). Comments are reserved for the rare dispatch-path failure and
+          stale-PR close. System prompt body lives at `expert-templates/prompts/backlog-dispatcher.md`
+          and is pulled in via `<include>`. Requires the `PR Author (GitHub)` expert to be deployed first;
+          copy its expert ID into `<PR_AUTHOR_EXPERT_ID>`.
+      - path: expert-templates/prompts/backlog-dispatcher.md
+        description: System-prompt body for the Backlog Dispatcher expert. Pulled into `backlog-dispatcher.yaml.template`
+          via `<include src="kb://expert-templates/prompts/backlog-dispatcher.md" />`. Composes the dispatcher's
+          rubric, scan loop, and per-source primitives from `kb://skills/backlog-dispatcher/...`, and
+          loads curated team memory at session bootstrap via `kb://skills/memory/load-memory.md` to bias
+          the rubric on durable learnings (memory team `backlog-dispatcher`, default scope `global`).
+      # Back-compat prompt aliases: already-deployed experts have the old
+      # `kb://expert-templates/prompts/<old-name>.md` URI baked into their
+      # stored systemPrompt (the `<include>` is resolved at session start,
+      # not at apply time). Each file is a one-line `<include>` forwarder
+      # to the renamed prompt body; the recursive resolver expands it.
+      - path: expert-templates/prompts/intent-reviewer.md
+        description: Back-compat alias prompt for `pair-reviewer.md`. Forwarder for already-deployed `Intent
+          Reviewer (GitHub)` experts whose stored systemPrompt still references this path.
+      - path: expert-templates/prompts/slack-feedback-triage.md
+        description: Back-compat alias prompt for `feedback-triager.md`. Forwarder for already-deployed
+          `Slack Feedback Triage` experts whose stored systemPrompt still references this path.
+      - path: expert-templates/prompts/slack-alert-investigator.md
+        description: Back-compat alias prompt for `incident-investigator.md`. Forwarder for already-deployed
+          `Slack Alert Investigator` experts whose stored systemPrompt still references this path.
+      - path: expert-templates/prompts/active-incident-companion.md
+        description: Back-compat alias prompt for `incident-investigator.md`. Forwarder for already-deployed
+          `Active Incident Companion` experts whose stored systemPrompt still references this path; the
+          `active-incident-companion.yaml.template` bundle was deleted in this PR because Incident Investigator
+          (Slack) now covers the stationed-channel use case as a second mode.
+      - path: expert-templates/prompts/mr-author-gitlab.md
+        description: Back-compat alias prompt for `mr-author.md`. Forwarder for already-deployed `MR Author
+          (GitLab)` experts whose stored systemPrompt still references this path (renamed from `mr-author-gitlab.md`
+          when the `-gitlab` suffix was dropped).
+      - path: expert-templates/prompts/mr-status-poll-worker-gitlab.md
+        description: Back-compat alias prompt for `mr-author-status-watcher-gitlab.md`. Forwarder for
+          already-deployed GitLab MR status-poll worker experts whose stored systemPrompt still references
+          this path.
+      - path: expert-templates/prompts/pr-status-poll-worker.md
+        description: Back-compat alias prompt for `pr-author-status-watcher.md`. Forwarder for already-deployed
+          `PR Author – Status Poll Worker` experts whose stored systemPrompt still references this path.
+      - path: expert-templates/prompts/ticket-dispatcher.md
+        description: Back-compat alias prompt for `backlog-dispatcher.md`. Forwarder for already-deployed
+          `Ticket Dispatcher` experts whose stored systemPrompt still references this path.
+      - path: expert-templates/prompts/own-reviewer.md
+        description: 'Back-compat alias prompt forwarding to `pair-reviewer.md`. Forwarder for already-deployed
+          `Own Code Reviewer (GitHub)` experts whose stored systemPrompt still references this path; the
+          `own-reviewer.yaml.template` bundle was deleted in the displayName-rename PR #54174 because
+          Pair Reviewer covers the same self-review use case per the Cosmos Expert names decisions (see
+          `advisor/playbook.md` § "Recent expert renames").'
+      - path: expert-templates/pawggie.yaml.template
+        description: Pawggie expert — virtual-puppy bundle with cron-decay, VFS-state, and permadeath
+          mechanics. Manually-launchable but not surfaced by the Advisor or any onboarding/automation
+          bundle. User-visibility, single scheduled `every-2h-decay` trigger that ships disabled. System
+          prompt body lives at `expert-templates/prompts/pawggie.md` and is pulled in via `<include>`.
+      - path: expert-templates/prompts/pawggie.md
+        description: System-prompt body for the Pawggie expert. Pulled into `pawggie.yaml.template` via
+          `<include src="kb://expert-templates/prompts/pawggie.md" />`. Defines the 0–100 stat schema,
+          decay/clamp arithmetic, scheduled-vs-interactive branching, the permadeath graveyard move, and
+          the hard `# Time` rule that mandates a `date -u +...` shell-out before any timestamp write.
+  - name: Advisor
+    path: advisor/
+    description: Operational playbook for the Advisor expert.
+    tags: [advisor, sdlc]
+    files:
+      - path: advisor/playbook.md
+        description: Four recurring phases (Dependencies → Environment → Expert → Analyze) plus the Advisor's
+          operating rules (start where the team left off, consent before mutation, honest unknowns, one
+          phase at a time) and the catalogue of available starter experts vs coming-soon ones.
+      - path: advisor/build-expert.md
+        description: Conversational build-and-create flow for a bespoke Cosmos expert. Drives requirements
+          via `ask-user` (trigger, identity, capabilities, output destination), constructs an `ExpertBundle`
+          internally, gates creation on an explicit go, and applies via `auggie cloud expert apply -f`.
+          Lazy-included by Advisor (`expert-templates/prompts/advisor.md`) and inline-included by the
+          back-compat Expert Factory redirect stub (`expert-templates/prompts/expert-factory.md`). Never
+          shows YAML to the user.
+  - name: Skills
+    path: skills/
+    description: Reusable Markdown skill fragments referenced from expert system prompts via the composable-skills
+      `<include src="kb://skills/..."/>` directive. Resolved at session start in the Cosmos agent runtime;
+      not intended for direct human consumption.
+    tags: [skills, experts, composable]
+    files:
+      # Cosmos platform itself
+      - path: skills/cosmos/fix-in-cosmos-button.md
+        description: Render a clickable "Fix in Cosmos" markdown badge that deep-links from a GitHub comment
+          into a fresh Cosmos webapp session pre-loaded with a fix prompt. Defines the fixed image asset
+          URL, how to derive `<WEBAPP_ORIGIN>` from `session_url` so staging/prod stay aligned, and how
+          to assemble `<FIX_IN_COSMOS_URL>`. Composing experts decide when to render the badge and supply
+          the fix-prompt text. Included by Deep Code Reviewer (`expert-templates/prompts/deep-code-reviewer.md`)
+          and End-to-End Verifier (`expert-templates/prompts/end-to-end-verifier.md`).
+      - path: skills/cosmos/hosted-artifacts.md
+        description: Upload a local file via `auggie cloud artifact upload` to get a reviewer-accessible
+          URL embeddable on any external surface. Default destination for verdict-cited proof and any
+          other reviewer-visible file output (50 MiB cap, 15-min signed-URL TTL on retry). Covers upload,
+          embed forms, `auggie cloud artifact delete` undo, and the cleanup-ledger exemption (durable
+          evidence, not a session side effect). Included by the End-to-End Verifier.
+      # Integration-neutral hygiene
+      - path: skills/hygiene/short-assistant-messages.md
+        description: Output style for event-driven monitoring agents — assistant messages are brief and
+          human-friendly (one or two short sentences) with no narration or input echoing. Used by PR Author,
+          PR Shepherd.
+      - path: skills/hygiene/short-assistant-messages-with-timestamp.md
+        description: "Variant of short-assistant-messages for polling workers — single short sentence
+          ending with `Last activity: {ISO 8601 timestamp}` so the timestamp survives history summarization.
+          Used by the PR Author Status Watcher."
+      - path: skills/hygiene/reply-channel.md
+        description: Reply-channel rule for any expert woken by both an external trigger / subscription
+          / webhook payload and direct human input in the Cosmos session chat panel — reply on the surface
+          the input arrived on and never mirror to the other surface unless explicitly asked. Used by
+          the Incident Investigator / Feedback Triager Slack experts and by the GitHub PR Author / GitLab
+          MR Author experts.
+      # GitHub integration
+      - path: skills/github/comment-header.md
+        description: Required header format for GitHub comments posted by an Augment agent. Refers to
+          role name, emoji, session URL, and on-behalf-of identity defined in the expert's context block.
+      - path: skills/github/self-detection.md
+        description: Three-class self-detection (own / other agent / human) for comment-monitoring agents
+          on GitHub, based on matching the link target in the comment header against the agent's session
+          URL.
+      - path: skills/github/fetch-pr-comments.md
+        description: Fetch every comment surface on a PR — top-level issue comments, inline review comments,
+          and review submissions — with pagination. Used by any agent that needs the full conversation
+          surface (pre-post duplicate scans, post-merge signal collection).
+      - path: skills/github/fetch-pr-reactions.md
+        description: Fetch reactions and reply threads on PR comments and review submissions, with reply
+          sentiment classification (agreed / disagreed / discussed). Used by post-hoc analyzers of human
+          signal on a PR (e.g. memory data collectors).
+      - path: skills/github/post-eyes-reaction.md
+        description: Post a 👀 (`eyes`) reaction on the PR or the issue comment that triggered the session
+          as a "currently working" indicator for the PR author, plus a short top-level "view session"
+          comment linking back to this agent's session. Records session-owned cleanup state so `clear-eyes-reaction`
+          removes only the reaction and comment created by this session.
+      - path: skills/github/clear-eyes-reaction.md
+        description: Remove the session-owned 👀 (`eyes`) reaction and "view session" comment posted by
+          `post-eyes-reaction` once the agent's work is finished. Runs on every exit branch so a stale
+          👀 or session-link comment doesn't outlive the session.
+      - path: skills/github/human-comment-noise-filter.md
+        description: Filter human PR comments down to those with meaningful team signal — keep only comments
+          with 1+ reactions, substantive replies, or addressed change requests; drop LGTMs, process noise,
+          and bot-generated traffic. Used by analyzers ranking human signal on a PR.
+      - path: skills/github/scan-existing-comments.md
+        description: Scan a PR's existing top-level comments, review comments, and reviews before posting
+          anything, to surface unresolved threads and to give a brief summary in interactive reviews.
+          Includes `kb://skills/github/fetch-pr-comments.md` for the underlying fetch.
+      - path: skills/github/branch-checkout.md
+        description: Check out a PR's source branch and diff against the PR's actual base branch (three-dot
+          diff against the merge-base, not against `main`). Critical for stacked PRs. Used by Pair Reviewer,
+          Deep Code Reviewer.
+      - path: skills/github/pr-analytics-reporting.md
+        description: Efficient GitHub PR analytics reports for repo-wide, explicit-user-list, or GitHub-team
+          scopes. Defaults to completed-period trends with total merged PR count by week or month and
+          author-attributed PRs merged per engineer; renders Mermaid charts inline in the session.
+      - path: skills/github/pr-activity-states.md
+        description: Active / Idle / Dormant activity-state model for PR-monitoring agents that delegate
+          polling to a status-poll worker.
+      # GitHub PR-monitor flow (PR Author / PR Shepherd)
+      - path: skills/github/pr-monitor/attribution.md
+        description: Identity-attribution rules for a GitHub PR-monitoring agent. Every PR is created
+          by the org bot (`github-app-api`); the human who requested the work is recorded as a "Requested
+          by" line in the PR body and — when the requester resolves to a known GitHub login — also added
+          as the PR's assignee. Used by PR Author and any other expert that opens or operates on GitHub
+          PRs.
+      - path: skills/github/pr-monitor/create-from-task.md
+        description: Implement-and-open-PR sequence for an agent that turns a task description into a
+          pull request — implement, branch, commit, push, open the PR. Draft vs. ready-for-review is the
+          calling expert's decision — defaults to draft when unspecified. Attribution on every PR surface
+          (creator, body, assignee, branch name, comment headers) follows `skills/github/pr-monitor/attribution.md`.
+          Used by PR Author.
+      - path: skills/github/pr-monitor/init.md
+        description: Initialization sequence for a PR-monitoring agent — fetch head SHA, subscribe to
+          GitHub events, launch the status-poll worker, post the introduction comment, process existing
+          comments. The introduction comment text is supplied by the calling expert.
+      - path: skills/github/pr-monitor/comment-answering.md
+        description: Question-answering loop for a PR-monitoring agent. Filter incoming comment events,
+          classify them, and respond (answer, implement-and-push, or acknowledge).
+      - path: skills/github/pr-monitor/ci-and-conflict-handling.md
+        description: Handler for status-poll worker reports — diagnose CI failures, resolve merge conflicts,
+          bring the PR up to date with its base branch, and track activity-state transitions.
+      - path: skills/github/pr-monitor/termination.md
+        description: Termination steps for a PR-monitoring agent when the watched PR is closed or merged
+          — terminate the status-poll worker and unsubscribe from all remaining event subscriptions.
+      # Platform-neutral PR lifecycle policies
+      - path: skills/pr-lifecycle/reviewer-assignment.md
+        description: Fallback chain for assigning PR reviewers proactively — CODEOWNERS, ticket owner,
+          git history, team ownership. Used by PR Author and Builder.
+      - path: skills/pr-lifecycle/notification-policy.md
+        description: Surface-aware notification rules for PR-monitoring agents — when and where to notify
+          the PR owner (PR comments always, originating thread if available).
+      - path: skills/pr-lifecycle/adaptive-gates.md
+        description: Gate evaluation rules when supporting agents (code review, verification, risk assessment)
+          may or may not be configured. Skip gates that never produced a signal.
+      - path: skills/pr-lifecycle/ready-to-merge.md
+        description: Gate evaluation, notification, and merge policy for determining when a PR/MR is ready
+          to merge — or blocked and needs human action.
+      - path: skills/pr-lifecycle/anti-patterns.md
+        description: Common anti-patterns for PR/MR authoring agents — behavioral guardrails to prevent
+          idle waiting, missed proactive steps, and unauthorized merges.
+      # GitHub PR Author Status Watcher
+      - path: skills/github/pr-poll/decision-protocol.md
+        description: Mandatory REPORT / NO_REPORT decision line the PR Author Status Watcher worker must
+          emit before every assistant message, with the rule that REPORT must always be followed by a
+          `worker-report-to-manager` tool call.
+      - path: skills/github/pr-poll/ci-subscriptions.md
+        description: SHA-scoped CI subscription management for the PR Author Status Watcher worker — initial
+          subscribe, rotation on new pushes, and the webhook-triggered fetch-and-report rule (never trust
+          the webhook payload's conclusion field).
+      - path: skills/github/pr-poll/status-poll.md
+        description: Periodic status-poll cycle for the PR Author Status Watcher worker — fetch PR state,
+          evaluate merge state, fall back to a CI status fetch, evaluate activity-state transitions, and
+          handle reactivation/termination messages from the manager.
+      # GitHub × code-review
+      - path: skills/github/code-review/approval-fallback.md
+        description: Three-step fallback for posting an approving review when the bot account cannot approve
+          its own PR — try `github-app-api`, fall back to `github-personal-api`, and surface the failure
+          to the human if both fail.
+      - path: skills/github/code-review/queue-and-submit-review.md
+        description: Queue inline review comments during a code review and submit them all together as
+          one GitHub pull-request review when the verdict is posted; covers anchoring findings to diff
+          lines, the in-session queue, revising queued findings, and the GitHub Reviews API payload.
+      - path: skills/github/code-review/post-finding-incrementally.md
+        description: For a very large code review, post each approved finding to GitHub the moment it
+          is finalized (one at a time) instead of queuing it for a single batched review, then build the
+          verdict from durable GitHub state.
+      # GitLab integration
+      - path: skills/gitlab/comment-header.md
+        description: Required header format for GitLab notes posted by an Augment agent. Refers to role
+          name, emoji, session URL, and on-behalf-of identity defined in the expert's context block.
+      - path: skills/gitlab/self-detection.md
+        description: Three-class self-detection (own / other agent / human) for GitLab note-monitoring
+          agents, based on matching the link target in the comment header against the agent's session
+          URL.
+      - path: skills/gitlab/fetch-mr-comments.md
+        description: Fetch every comment surface on a GitLab MR — general notes and inline diff discussions
+          — using the `glab` CLI.
+      - path: skills/gitlab/fetch-mr-reactions.md
+        description: Fetch GitLab award emoji on MR notes, with reply sentiment classification for post-hoc
+          analyzers of human signal on an MR.
+      - path: skills/gitlab/post-eyes-reaction.md
+        description: Post an `eyes` award emoji on a GitLab MR as a currently-working indicator and record
+          enough state for cleanup.
+      - path: skills/gitlab/clear-eyes-reaction.md
+        description: Remove the session-owned `eyes` award emoji once the GitLab MR agent's work is finished.
+      - path: skills/gitlab/human-comment-noise-filter.md
+        description: Filter human GitLab MR comments down to meaningful team signal; drop LGTMs, process
+          noise, and bot-generated traffic.
+      - path: skills/gitlab/scan-existing-comments.md
+        description: Scan a GitLab MR's existing notes and discussions before posting anything, to surface
+          unresolved threads and to give a brief summary in interactive reviews. Includes the GitLab MR
+          comment fetch skill.
+      - path: skills/gitlab/branch-checkout.md
+        description: Check out a GitLab MR's source branch and diff against its actual target branch,
+          not blindly against `main`; critical for stacked MRs.
+      - path: skills/gitlab/inline-comment-anchoring.md
+        description: Anchor GitLab inline review comments to lines that actually appear in the MR diff,
+          including `old_line`/`new_line` guidance.
+      - path: skills/gitlab/mr-activity-states.md
+        description: Active / Idle / Dormant activity-state model for MR-monitoring agents that delegate
+          polling to a GitLab status-poll worker.
+      # GitLab MR-monitor flow (MR Author)
+      - path: skills/gitlab/mr-monitor/create-from-task.md
+        description: Implement-and-open-MR sequence for an agent that turns a task description into a
+          draft GitLab merge request.
+      - path: skills/gitlab/mr-monitor/init.md
+        description: Initialization sequence for a GitLab MR-monitoring agent — fetch head SHA, subscribe
+          to GitLab custom-webhook note/close events, launch the status-poll worker, post the introduction
+          note, and process existing notes.
+      - path: skills/gitlab/mr-monitor/comment-answering.md
+        description: Question-answering loop for a GitLab MR-monitoring agent. Filter incoming note events,
+          classify them, and respond in the appropriate GitLab discussion thread.
+      - path: skills/gitlab/mr-monitor/ci-and-conflict-handling.md
+        description: Handler for GitLab status-poll worker reports — diagnose pipeline failures, resolve
+          merge conflicts, bring the MR up to date with its target branch, and track state transitions.
+      - path: skills/gitlab/mr-monitor/termination.md
+        description: Termination steps for a GitLab MR-monitoring agent when the watched MR is closed
+          or merged — terminate the status-poll worker and unsubscribe from remaining event subscriptions.
+      # GitLab MR Author Status Watcher
+      - path: skills/gitlab/mr-poll/decision-protocol.md
+        description: Mandatory REPORT / NO_REPORT decision line the MR Author Status Watcher (GitLab)
+          worker must emit before every assistant message, with the rule that REPORT must call `worker-report-to-manager`.
+      - path: skills/gitlab/mr-poll/ci-pipeline-polling.md
+        description: SHA-scoped GitLab pipeline subscription and polling fallback for MR Author Status
+          Watcher (GitLab) workers, including job fetches and actionable failure reporting.
+      - path: skills/gitlab/mr-poll/status-poll.md
+        description: Periodic status-poll cycle for the MR Author Status Watcher (GitLab) worker — fetch
+          MR state, evaluate merge state, fall back to pipeline status fetches, evaluate activity-state
+          transitions, and handle reactivation/termination messages.
+      # GitLab × code-review
+      - path: skills/gitlab/code-review/approval-fallback.md
+        description: Approve a GitLab MR with `glab mr approve`, surfacing project approval-rule failures
+          to the human when programmatic approval is not allowed.
+      - path: skills/gitlab/code-review/queue-and-submit-review.md
+        description: Queue GitLab inline review comments during a code review and submit them as MR discussion
+          notes with correct diff positions when the verdict is posted.
+      # Integration-neutral memory
+      - path: skills/memory/load-memory.md
+        description: Load curated team memory at the start of a task — per-scope learnings rooted in the
+          calling team's organization VFS. The calling expert supplies the team name and scope key via
+          its context. Used by Pair Reviewer, Deep Code Reviewer, PR Risk Analyzer, Backlog Dispatcher.
+      - path: skills/memory/feedback-capture.md
+        description: Auto-capture agent-inferred insights to the calling team's per-scope breadcrumb file
+          in the team's organization VFS, with a brief heads-up to the human (interactive sessions only)
+          and opt-out veto. Includes the standard probabilistic compaction rule (size > 50 KiB, R == 0
+          of 11) with compaction invariants (source counts, latest date, re-distillable prose, drop priority
+          by recency × weight, current-session freeze). The calling expert supplies the team name and
+          scope key via its context.
+      - path: skills/memory/source-weights.md
+        description: Source-weighting table for breadcrumb sections — `human-feedback` ×3, `human-comment`
+          ×2, `agent-inferred` ×1, `human-reaction` ×1, `pr-outcome` ×1. Includes the upgrade path (`agent-inferred`
+          → `human-feedback` on endorsement). Single source of truth for both writers (picking a `Source:`
+          value) and curators (computing a section's evidence score).
+      - path: skills/memory/knowledge-file-shapes.md
+        description: Canonical Markdown shape for curated per-scope team knowledge files — bullets grouped
+          under `##` matcher headings (file-path globs for repo-bound teams, topic names for single-scope
+          teams, or any other matcher the team's binding documents) with the italicized `(seen N× — sources;
+          last anchor; persistence)` annotation grammar each visible bullet must end with.
+      - path: skills/memory/curate-knowledge.md
+        description: Distill a team's structured-Markdown breadcrumbs into a curated Markdown knowledge
+          file. Reads `breadcrumbs/{SCOPE}.md`, applies source-weighted promotion (threshold ≥ 3), groups
+          bullets under per-scope `##` matcher headings, and rewrites `knowledge/{SCOPE}.md` as a single
+          whole-file rewrite. Per-scope only — does not list or read other scopes. Deterministic — no
+          cursor state. The calling expert supplies the team name and scope key via its context.
+      - path: skills/memory/prune-and-compact.md
+        description: Prune stale bullets from one curated knowledge file (`knowledge/{SCOPE}.md`, persistence-aware
+          — permanent / temporal / pre_insight) and compact it if it exceeds the reader budget (50 KiB
+          ceiling, ≤ 20 KiB target). Per-scope only — operates on the calling expert's own scope, not
+          the team root. The calling expert supplies the team name and scope key via its context.
+      - path: skills/memory/pr-collection-idempotency.md
+        description: Idempotency check for PR-triggered breadcrumb writers — scan the team's per-scope
+          breadcrumbs file for an existing section whose prose contains the current PR's URL, and skip
+          writing if found. Generic append-only "have I already processed this PR?" pattern.
+      - path: skills/memory/internal-vfs-conflict-handling.md
+        description: How interactive experts must react to a `[VFS conflict]` system notification on one
+          of the agent's own memory files (breadcrumbs / curated knowledge). Recover silently — no narration,
+          no backup-path or file-path mention, no recovery dance — and re-apply the lost write against
+          the latest server version. Included by `feedback-capture.md`, `curate-knowledge.md`, and `prune-and-compact.md`.
+      - path: skills/memory/simple/capture.md
+        description: "Simple-memory writer — append one bullet per high-quality fact (`Source: human-feedback`)
+          to the calling team's per-scope knowledge file (`knowledge/{SCOPE}.md`). No breadcrumb tier,
+          no curator, no source-weighted promotion, no compaction lottery. The team's binding wrapper
+          supplies the allowed `##` headings and the bullet shape. Includes `kb://skills/memory/internal-vfs-conflict-handling.md`."
+      - path: skills/memory/simple/load.md
+        description: Simple-memory loader — thin wrapper around `kb://skills/memory/load-memory.md` for
+          teams that use the simple (single-tier) memory model. Reads `knowledge/{SCOPE}.md` written by
+          `kb://skills/memory/simple/capture.md`.
+      # Integration-neutral code-review
+      - path: skills/code-review/dedup-policy.md
+        description: Dedup policy for a non-interactive code-review agent (e.g. Deep Code Reviewer). Distinguishes
+          prior reviews — your own past runs (matched via the bold role-name link in the comment header)
+          and review comments / discussion notes from human reviewers, which must NOT be duplicated —
+          from other bots' general comments (e.g. PR Risk Analyzer triage), which MAY be duplicated when
+          you independently identify a real issue. Also preserves deference to human reviewer feedback.
+      - path: skills/code-review/load-memory.md
+        description: Code-review-specific binding for the generic memory load skill (sets TEAM=code-review,
+          SCOPE={owner}/{repo}; specializes matchers as file-path globs against PR changed files). Includes
+          `kb://skills/memory/load-memory.md`.
+      - path: skills/code-review/feedback-capture.md
+        description: Code-review-specific binding for the generic memory feedback-capture skill (sets
+          TEAM=code-review, SCOPE={owner}/{repo}; frames the breadcrumb append as "review insights"/"review
+          breadcrumbs" with PR-URL anchors). Includes `kb://skills/memory/feedback-capture.md`.
+      - path: skills/code-review/prune-and-compact.md
+        description: Code-review-specific binding for the generic memory prune-and-compact skill (sets
+          TEAM=code-review, SCOPE={owner}/{repo}; inherits the standard 60/150/30-day persistence windows
+          and 50 KiB / 20 KiB size budget). Includes `kb://skills/memory/prune-and-compact.md`.
+      - path: skills/code-review/knowledge-file-shapes.md
+        description: Code-review-specific binding for the generic memory knowledge-file-shapes skill (sets
+          TEAM=code-review; per-repo scope is `{owner}/{repo}` with file-path-glob headings). Includes
+          `kb://skills/memory/knowledge-file-shapes.md`.
+      - path: skills/code-review/pr-collection-idempotency.md
+        description: Code-review-specific binding for the generic memory pr-collection-idempotency skill
+          (sets TEAM=code-review, SCOPE={owner}/{repo}; treats the PR URL as the canonical anchor and
+          quotes in-session human-feedback prose verbatim when found). Includes `kb://skills/memory/pr-collection-idempotency.md`.
+      - path: skills/code-review/phase-output-formats.md
+        description: Output-format templates for phased code-review experts — review plan, skipped phase,
+          phase (overview + optional findings), individual finding, pre-recommendation check-in, and final
+          recommendation/readiness blocks.
+      - path: skills/code-review/review-phases.md
+        description: Catalog of standard review phases (Purpose, Risk, Architecture & Design, APIs & Schemas,
+          Correctness & Logic, Security, Tests, Readability & Consistency) with their lens, sub-lenses,
+          and discussion-vs-findings classification.
+      - path: skills/code-review/deep-review-core.md
+        description: Platform-neutral rubric for a non-interactive line-by-line bug-finding review — objectives,
+          comment/severity guidelines, review focus areas, per-finding output shape, and read-only constraints,
+          with no platform API specifics. Composed by `expert-templates/prompts/mr-deep-code-reviewer.md`.
+      - path: skills/code-review/risk-analysis-core.md
+        description: Platform-neutral rubric for triaging a change request as rubber-stamp-safe or needing
+          human input — decision logic, approval-safety rules, the manual re-analysis regression rule,
+          the topic table, the two outcome comment bodies, and the handoff-link mechanics. Composed by
+          `expert-templates/prompts/mr-risk-analyzer.md`.
+      - path: skills/code-review/pair-review-core.md
+        description: Platform-neutral contract for an interactive pair-review — role, phase judgment,
+          topic-scoped review, output formats, verdict calibration, the post-verdict monitoring flow,
+          and the interactive ground rules. Composed by `expert-templates/prompts/mr-pair-reviewer.md`.
+      # Slack integration (channel-agnostic hygiene)
+      - path: skills/slack/thread-permalink.md
+        description: Construct a Slack thread-root permalink deterministically from channel ID and message
+          ts (`https://<workspace>.slack.com/archives/<CHANNEL_ID>/p<ts_no_dot>`), avoiding a `chat.getPermalink`
+          round-trip per posted ticket or thread update. Used by Slack-posting agents that need to embed
+          a link to a thread in a downstream system.
+      - path: skills/slack/mrkdwn-formatting.md
+        description: Slack mrkdwn formatting rules for any agent that posts messages to Slack — `*bold*`
+          (not `**bold**`), `<url|text>` links, no `#` headers, bullet conventions. Slack does NOT use
+          GitHub-flavored Markdown; common Markdown idioms render as literal characters and look like
+          a bug to the channel.
+      - path: skills/slack/ensure-channel-membership.md
+        description: "Channel-membership precondition for any Slack-posting agent — call `conversations.join`
+          on the target channel (with a `conversations.info` `is_member` fallback for private channels,
+          which `conversations.join` cannot join) before the first `chat.postMessage` / `conversations.history`
+          / `reactions.add` / similar membership-gated call, and fall through to the caller's failure
+          handling on any unrecoverable response."
+      - path: skills/slack/subscribe-and-respond.md
+        description: "In-thread follow-up subscription for any Slack-posting agent — single `subscribe-event`
+          call (no text filter, skip the agent's own bot user) so every reply on the thread the agent
+          has posted to wakes the session, plus the local decide-respond rule (mention or directed follow-up
+          question → respond, with a `:eyes:` reaction on the incoming reply before any other work and
+          removed after the response posts; aside between humans / reaction-only ack → stay quiet) and
+          a never-terminate rule that keeps the session-scoped subscription alive."
+      - path: skills/slack/fix-via-pr-author.md
+        description: "Launch a PR Author worker for a fix that has already been selected by a human in
+          the Slack thread, then post a one-line `:wrench: PR Author launched —` follow-along link to
+          the worker session in that same thread. The composing expert is responsible for obtaining the
+          explicit human selection beforehand; this skill owns the worker launch + follow-along handoff
+          only."
+      # Feedback Triager (Slack) flow (one-session-per-thread)
+      - path: skills/slack/feedback-triager/lifecycle.md
+        description: Per-thread triage lifecycle for the Feedback Triager (Slack) — the durable scaffolding
+          (thread ownership, investigating ack, research + sufficiency check, re-check before acting,
+          ticket action contract) that brackets the consumer-owned Classify and Act work, plus reply-style
+          invariants (Fixer mode lives in the event-loop, not here).
+      - path: skills/slack/feedback-triager/fixer-mode.md
+        description: Fixer mode for the Feedback Triager (Slack) flow — entered from the event-loop's
+          clause `f` when a non-bot human in the thread explicitly asks the bot to open a PR/MR. Re-checks
+          thread context, files a ticket if not yet filed, dedupes against any prior PR/MR Author worker
+          for this thread, then composes the shared `fix-via-pr-author` skill to launch the configured
+          `<PR_AUTHOR_EXPERT_ID>` worker (which posts milestone updates back into the thread on opened
+          / ready-to-merge). Explicit-ask only — never auto-fires. Inert when `<PR_AUTHOR_EXPERT_ID>`
+          is left as the literal placeholder (posts a brief "not configured" reply and stops).
+      - path: skills/slack/feedback-triager/subscribe-to-thread.md
+        description: Two `subscribe-event` calls (one for `message`, one for `app_mention`) that together
+          capture every Slack event on a single thread for the lifetime of the session. Single-subscription
+          approaches drop events because Slack's `event_type` filter is source-side; this skill is the
+          canonical fix.
+      - path: skills/slack/feedback-triager/event-loop.md
+        description: Per-event dispatch loop for the Feedback Triager (Slack) after initial triage — handles
+          reply/edit/delete clauses, `app_mention`, Fixer-mode dispatch, standing-rule graduation, and
+          a fallthrough drop, with self-detection and repeat-action guards plus ordered reply/mention
+          pre-checks (clarification-asked re-entry, explicit `please file a ticket` ask, Fixer-mode trigger).
+      - path: skills/slack/feedback-triager/feedback-capture.md
+        description: Feedback-triager binding for the simple-memory capture skill. Sets TEAM=feedback-triager
+          and SCOPE=channel_<CHANNEL_ID>, defines the action-class `##` headings (classification / routing
+          / dedup / silence / cross-cutting) and the `- <rule>. (<slack-permalink>, YYYY-MM-DD)` bullet
+          shape. Includes `kb://skills/memory/simple/capture.md`. Called by the event loop on standing-rule
+          replies.
+      - path: skills/slack/feedback-triager/example-classification.md
+        description: Illustrative six-category classification taxonomy (bug_report / feature_request /
+          question / ux_feedback / customer_relay / praise_or_noise) lifted from the Cosmos Feedback Triage
+          expert. Provided as a copy-and-edit starting point for adopters of the Feedback Triager (Slack)
+          template, NOT as a default — the categories encode product judgments specific to one team's
+          channel.
+      # Slack incident-investigator flow (single-agent incident response)
+      - path: skills/incident-investigator/investigate.md
+        description: "Phase 2 investigation loop for the Incident Investigator (Slack) — extract the alert's
+          exact label/principal scope, query metrics and logs via the runtime's metrics-query and log-query
+          skills (named in the adopting bundle), correlate with recent deploys/commits, label every finding
+          `Confirmed`/`High`/`Tentative`, and stop on a bounded budget (Confirmed; or High + ≥5 checks;
+          or 15 tool calls without progress). Integration-neutral — referenced from Slack-specific (and
+          potentially other) incident-investigator prompt bodies."
+      - path: skills/slack/incident-investigator/triage.md
+        description: "Phase 1 triage for the Incident Investigator (Slack) — decide whether to engage,
+          capture the triggering thread, idempotently `conversations.join` the triggering channel (and
+          stay silent if the join fails because the channel is private / inaccessible), post the single-line
+          `:mag: investigating` ack, parse the input into `{title, service, severity, impact, url}`, and
+          dedup against the agent's own prior triggers in the channel via `conversations.history` (no
+          calls to the incident-management platform's HTTP API)."
+      - path: skills/slack/incident-investigator/post-structure.md
+        description: "Phase 3 communicate rules for the Incident Investigator (Slack) — post in-thread
+          on material changes only, end every root-cause / findings post with one `*Recommended action:*`
+          tag from a fixed list (`do nothing` / `monitor` / `mitigate manually` / `fix via PR` / `escalate`
+          / `tune alert`, with `fix via PR` eligibility gated on confidence × severity), follow the required
+          eight-section layout (Root cause line, Incident Summary, Likely Cause, Key Evidence, Recommended
+          Next Steps, Possible fixes, Owners, Recommended action) with blank lines between sections, and
+          render `*Owners:*` as a clickable `<#CHANNELID|channel-name>` link."
+      - path: skills/slack/incident-investigator/escalation-routing.md
+        description: "Resolution procedure for the Incident Investigator (Slack)'s escalation handoff
+          — try CODEOWNERS for the affected repo paths first, fall back to the adopting bundle's service/signal
+          table (first case-insensitive substring match wins), otherwise post `unable to identify owning
+          team`. One handoff per incident, never cross-post into the named channel. Same table powers
+          the post-structure skill's `*Owners:*` line."
+      - path: skills/slack/incident-investigator/await-fix-selection.md
+        description: "Phase 4 gate for the Incident Investigator (Slack) — wait for explicit human option-selection
+          in the thread before delegating a code fix. Your prior root-cause / findings post should already
+          carry the `fix via PR` recommended-action tag and a *Possible fixes* section with 1–3 numbered
+          options; STOP after posting it, do not pre-clone repos or draft diffs, and accept only an unambiguous
+          reply that names a specific option (or supersedes them with a concrete instruction) before handing
+          off to the shared `slack/fix-via-pr-author` launch step."
+      - path: skills/slack/incident-investigator/post-resolution-summary.md
+        description: "Phase 5 post-resolution summary for the Incident Investigator (Slack) triggered
+          by an in-thread resolution signal from the incident-management-platform bot or a clear human
+          all-clear on an engaged incident thread — runs four routing checks before posting, optionally
+          verifies resolution with ≤5 tool calls, and emits exactly one in-thread summary in the four-section
+          layout (Post-Resolution Summary / Root Cause / What Was Done / Follow-up Items) with no session-link
+          footer."
+      - path: skills/slack/incident-investigator/pre-action-thread-recheck.md
+        description: "Pre-action staleness gate — before any in-thread post or worker launch, re-read
+          the thread and decide whether to suppress, revise, or proceed, so the action is not taken after
+          teammates have already covered, contradicted, or withdrawn it."
+      - path: skills/slack/incident-investigator/hard-rules.md
+        description: "Shared hard rules for any Slack alert / incident expert — no self-edits to code,
+          no resolution without explicit human approval, filter out sibling AI agents, only post in-thread."
+      - path: skills/slack/incident-investigator/identity-bindings.md
+        description: "Shared Bot user ID identity wiring for any Slack alert / incident expert — points
+          the agent at the adopting bundle's *Identity* section for the Slack user id this expert posts
+          as (the id the triage, post-structure, post-resolution-summary, and shared Slack subscribe-and-respond
+          skills refer to as `your own bot user`). Composing experts keep role-name and on-behalf-of inline
+          and include this skill for the integration-level fact."
+      - path: skills/slack/incident-investigator/phase-fix-via-pr.md
+        description: "Shared Phase 4 frame for any Slack alert / incident expert — one-sentence intro
+          pointing back to the post-structure skill's `fix via PR` recommended-action tag, the await-fix-selection
+          gate, the shared fix-via-pr-author launch step, and a trailer that forbids marking the incident
+          resolved until merge confirmation or explicit human sign-off (per the shared Hard Rules). Included
+          by the Incident Investigator (Slack) prompt under its `# Phase 4` heading."
+      - path: skills/slack/incident-investigator/skills-and-routing.md
+        description: "Shared binding prose for any Slack alert / incident expert that points the agent
+          at the adopting bundle's *Available skills* section (metrics / logs / runtime tools) and its
+          *Service / signal → handoff channel* routing table (canonical ownership source)."
+      - path: skills/slack/incident-investigator/stop-conditions.md
+        description: "Shared per-incident anti-rabbit-hole stop conditions for any Slack alert / incident
+          expert — when to bail out and report `inconclusive`, plus the requirement that every such report
+          name what context or access would have closed the gap."
+      - path: skills/slack/incident-investigator/deduplication.md
+        description: "Shared deduplication guidance for any Slack alert / incident expert that may be
+          re-triggered on the same thread — detect prior self-posts via `conversations.replies` (not hidden
+          HTML markers, which Slack mrkdwn renders as literal text) before reposting."
+      - path: skills/slack/incident-investigator/memory.md
+        description: "Shared memory wiring for any Slack alert / incident expert — binds TEAM=incident-response
+          and SCOPE=channel_<CHANNEL_ID>, loads per-channel learnings at session start via the simple-memory
+          loader, and defines the standing-rule capture trigger that fires on in-thread replies stating
+          a behaviour change for FUTURE incidents in this channel. Includes `kb://skills/memory/simple/load.md`
+          and `kb://skills/slack/incident-investigator/capture-learning.md`."
+      - path: skills/slack/incident-investigator/capture-learning.md
+        description: "Incident-response binding for the simple-memory capture skill. Sets TEAM=incident-response
+          and SCOPE=channel_<CHANNEL_ID>, defines the per-channel `##` headings (triage / routing / investigation
+          / silence / dedup / cross-cutting) and the `- <rule>. (<slack-permalink>, YYYY-MM-DD)` bullet
+          shape. Includes `kb://skills/memory/simple/capture.md`. Called by the standing-rule pre-check
+          in `kb://skills/slack/incident-investigator/memory.md`."
+      # Backlog Dispatcher (scheduled triage → PR Author hand-off)
+      - path: skills/backlog-dispatcher/dispatch-rubric.md
+        description: Single judgement-based decision rubric for the Backlog Dispatcher. Defines what the
+          dispatch path (dispatch to PR Author) and the skip path mean, lists the small set of hard safety
+          overrides (auth/billing/secrets/schema/new-API/new-dependency/`needs-design`/assigned-to-human)
+          that always force the skip path, and gives the worker-launch message body. Trusts the agent's
+          judgement on the open call rather than enumerating exhaustive criteria; "when in doubt, skip".
+      - path: skills/backlog-dispatcher/scan-loop.md
+        description: Scan loop for the scheduled Backlog Dispatcher. Refreshes the VFS PR registry under
+          `PR_REGISTRY_PATH` and computes `dispatch_budget = MAX_OPEN_PRS - open_pr_count`, then enumerates
+          open tickets across configured GitHub repos and Linear teams (newest-first), applies settling
+          (`SETTLING_AGE_HOURS`) and human-activity filters, applies the dispatch rubric, dispatches PR
+          Author workers in parallel within budget (label-first then launch), writes one YAML registry
+          file per dispatched PR on worker success, manages the three-label state machine, waits for worker
+          reports as `<worker>` messages, and sweeps stale PRs older than `STALE_PR_DAYS` before ending
+          the session. Caps dispatch-path launches at `min(MAX_DISPATCHES_PER_RUN, dispatch_budget)`.
+      - path: skills/backlog-dispatcher/github-source.md
+        description: GitHub Issues source primitives for the scheduled Backlog Dispatcher. Defines the
+          `list-candidates` `/search/issues` query (excludes the three cosmos labels, no other label filter,
+          newest-first via `sort=created&order=desc`), the field map the rubric needs (`<TICKET_URL>`,
+          `<TICKET_TITLE>`, …), the idempotent `apply-label`/`swap-label`/`post-failure-comment` write
+          primitives via `github-app-api`, and the `read-pr-status`/`read-pr-activity`/`close-stale-pr`
+          primitives the scan loop uses to maintain the VFS PR registry and sweep stale PRs. Includes
+          an explicit operation allowlist and anti-patterns (label-after-launch, replace-all `PUT /labels`,
+          labelling a dispatcher-owned PR).
+      - path: skills/backlog-dispatcher/linear-source.md
+        description: Linear source primitives for the scheduled Backlog Dispatcher. Defines the `list-candidates`
+          GraphQL query (excludes the three cosmos labels, no other label filter, newest-first via `orderBy=createdAt`),
+          the field map the rubric needs, and the idempotent `apply-label`/`swap-label`/`post-failure-comment`
+          write primitives via `issueAddLabel`/`issueRemoveLabel`/`commentCreate` (never `issueUpdate`
+          with `labelIds`). PR-registry primitives live in the GitHub source skill — Linear PRs are out
+          of scope. Includes an explicit operation allowlist and anti-patterns.
+      # Verification (single-shot End-to-End Verifier)
+      - path: skills/verification/end-to-end-verifier-fix-prompt.md
+        description: Fix-prompt text for the End-to-End Verifier's "Fix in Cosmos" badge — one variant
+          per actionable verdict. Read when composing the badge on a `failed` or `unable_to_verify` verdict.
+      - path: skills/verification/e2e-scope.md
+        description: E2E scope for the single-shot End-to-End Verifier. In scope — behaviour against a
+          running system (deployed service, bound CLI, served web app, live UI). Out of scope — unit tests,
+          in-process Bazel tests, plain build commands. PRs with no e2e surface return `skipped_not_applicable`;
+          never pivot to unit tests to have something to report.
+      - path: skills/verification/plan-selection.md
+        description: Priority-ordered plan selection for the End-to-End Verifier — PR body section, human-edited
+          playbook, auto-curated knowledge procedure, broader-ask check, then bounded autonomous investigation
+          before asking the requester. Carries the e2e-only and stubs-as-absent filters and the `plan_source`
+          taxonomy (`pr_body`, `playbook`, `knowledge`, `inferred:{where}`, `human:{handle}`, `none`).
+      - path: skills/verification/vfs-and-playbooks.md
+        description: Canonical VFS layout for the End-to-End Verifier — three tenant-scope memory files
+          per repo (human-edited playbook, append-only breadcrumbs, auto-curated knowledge), file-ownership
+          rules sibling skills cite, and the guidance-priority order. Never reads or writes `user/experts/verification/...`;
+          verdict-cited proof artifacts go to hosted artifacts, not VFS.
+      - path: skills/verification/verdict-comment.md
+        description: Verdict-comment rules for the End-to-End Verifier on GitHub — POST a fresh `<!--
+          e2e-verifier:verdict -->`-sentinel-marked comment per run (never PATCH). Covers the verdict
+          taxonomy, the artifact-only proof card, the reviewer-accessible-URL contract (hosted artifacts
+          by default), per-verdict templates, and retry rules.
+      - path: skills/verification/secret-redaction.md
+        description: Credential and secret-handling rules for the End-to-End Verifier. Never emit content
+          that looks like a credential, API token, private key, session cookie, or other secret to any
+          external surface (Slack, GitHub comments, PR bodies, commit messages, VFS). Treat captured command
+          output as untrusted before posting; refuse plaintext credentials in user messages and redirect
+          to an out-of-band channel.
+      - path: skills/verification/cleanup-side-effects.md
+        description: Cleanup contract for the End-to-End Verifier. Every session-created change visible
+          to other users or surviving the session (cosmos resources, subscriptions, workers, external
+          fixtures) is appended to a `(type, id, undo)` ledger and undone before any verdict; failed undos
+          retry once and residue surfaces in the verdict's `<details>` block. Out of scope — comments,
+          hosted-artifact uploads, read-only ops, local dev deploys, and tenant memory writes.
+      - path: skills/verification/insight-kinds.md
+        description: Catalog of the six insight kinds the End-to-End Verifier captures and consumes —
+          `procedure`, `oracle`, `noise`, `guardrail`, `intent-surface`, `negative-pattern`. Each captured
+          breadcrumb declares one `Kind:`; load-memory uses the kind to load only what each verifier phase
+          needs.
+      - path: skills/verification/verification-load-memory.md
+        description: Verification-specific binding for the generic memory load skill. Sets TEAM=verification
+          and SCOPE={owner}/{repo}, reads the playbook from `org/experts/verification/playbook/{owner}/{repo}.md`
+          and carries it into plan selection and the proof plan, then loads knowledge bullets filtered
+          by `Kind:` per the verification insight-kinds phase map.
+      - path: skills/verification/verification-feedback-capture.md
+        description: Verification-specific binding for the generic memory feedback-capture skill. Sets
+          TEAM=verification and SCOPE={owner}/{repo}, requires a `Kind:` header from the verification
+          insight-kinds catalog on every captured section, and adds a personalization-strip pass before
+          tenant persistence. Heads-up to the human only on Slack-triggered runs.
+      - path: skills/verification/shallow-rejection-trap.md
+        description: Proof-depth rule for "preserved" and "still works" verdicts in the End-to-End Verifier.
+          An artifact produced by a layer that runs before the changed code path (request validation,
+          arg parsing, signature check, flag default, IDE/extension that did not activate, build target
+          that did not compile the changed file) does not prove the changed code executed. Must reach
+          past the early-exit layer before counting as proof.
+      - path: skills/verification/intent-inventory.md
+        description: Intent-inventory schema and Q1/Q2 validation hard gate for the End-to-End Verifier
+          — required after intake and before plan or proof-path selection. Each intent records intended
+          behavior change, affected surface, and expected observable outcome; failing the gate triggers
+          up to 3 rewrites, then one clarification ask, then `unable_to_verify`.
+      - path: skills/verification/proof-plan.md
+        description: Proof-plan construction for the End-to-End Verifier — required after intent validation
+          and before any prepare/run. Per intent records tailored check, surface, setup/trigger, expected
+          outcome, evidence artifacts, pass/fail criteria, and the baseline-comparison decision; must
+          explain why each artifact would differ on revert. Built internally; shared only when confirmation
+          is needed.
+      - path: skills/verification/baseline-comparison.md
+        description: Baseline-comparison execution flow for the End-to-End Verifier. Capture `After/PR`
+          artifacts first, switch to the PR base via safe clean checkout (never `git checkout HEAD~1 --
+          <files>`), rerun the same scenario, capture `Before/Base` artifacts, and return to the PR head.
+          Failed baseline capture alone does not block the verdict.
+      - path: skills/verification/proof-bundle-by-surface.md
+        description: Proof-bundle requirements per verified surface for the End-to-End Verifier (UI/browser,
+          IDE UI, CLI/TUI, API/RPC, async, feature flag/config, logic-only). Every primary artifact needs
+          an evidence sentence and a paired revert-check sentence; "look identical" fails proof. Missing
+          required artifacts → `unable_to_verify`.

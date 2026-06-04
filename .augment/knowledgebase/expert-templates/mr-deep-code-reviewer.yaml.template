@@ -1,0 +1,54 @@
+# Deep Code Reviewer (GitLab) template.
+#
+# Non-interactive line-by-line bug review that posts inline severity-tagged
+# discussion notes to a GitLab MR. Shares the platform-neutral review rubric
+# (`kb://skills/code-review/deep-review-core.md`) with the GitHub Deep Code
+# Reviewer; only the GitLab surface mechanics differ.
+#
+# Model:
+#   Primary is `gpt-5-5`. There is no per-expert fallback-model field in the
+#   bundle schema — if `gpt-5-5` is unavailable for your tenant (it is a
+#   self-serve-only family and is blocked for enterprise/ZDR tenants), change
+#   `model:` below to the backup `claude-opus-4-8` before applying.
+#
+# Before applying:
+#   1. Create/apply a GitLab environment using `gitlab-cloud.yaml.template`;
+#      substitute its environment ID for `<GITLAB_ENVIRONMENT_ID>` below.
+#      See `guides/cloud/gitlab-environment-setup.md`.
+#   2. GitLab has no `type: github` trigger equivalent. To run this expert
+#      automatically, create a GitLab custom webhook
+#      (`auggie cloud webhook create --type gitlab`), configure it in the
+#      project's webhook settings (Merge request events + Comment events), and
+#      launch the expert from the webhook. Runtime subscriptions filter by
+#      payload shape, not by webhook ID, so no webhook ID is embedded here.
+#      Until that is wired, launch the expert manually with an MR URL.
+apiVersion: poseidon.augmentcode.com/v1alpha1
+kind: ExpertBundle
+metadata:
+  name: mr-deep-code-reviewer
+spec:
+  expert:
+    displayName: Deep Code Reviewer (GitLab)
+    description: Non-interactive line-by-line bug review; posts inline severity-tagged discussion notes to a GitLab MR.
+    visibility: tenant
+    systemPrompt: |-
+      <include src="kb://expert-templates/prompts/mr-deep-code-reviewer.md" />
+    model: gpt-5-5
+    includeDefaultSystemPrompt: true
+    capabilities:
+      - WEB_ACCESS
+      - CUSTOM_WEBHOOK
+    environment:
+      id: <GITLAB_ENVIRONMENT_ID>
+      resources:
+        cpuCores: 2
+        memoryMib: 4096
+    initialMessages: []
+    userInstructions: |-
+      Paste a **GitLab MR URL**.
+
+      This is a **non-interactive** deep review: the agent reviews the MR and posts inline bug-finding discussion notes. There is no human-in-the-loop — the agent does not consult you between phases.
+    placeholderText: GitLab MR URL
+    workerExpertIds: []
+    useAllExpertsAsWorkers: false
+  triggers: []
