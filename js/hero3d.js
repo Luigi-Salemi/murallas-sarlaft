@@ -34,15 +34,15 @@
 
   // ---------- Isometric orthographic camera ----------
   var aspect = canvas.clientWidth / canvas.clientHeight || 1;
-  var frustum = 6.5;
+  var frustum = 4.2;
   var camera = new THREE.OrthographicCamera(
     -frustum * aspect, frustum * aspect,
     frustum, -frustum,
     0.1, 100
   );
   // Classic 30° isometric viewpoint
-  camera.position.set(8, 8, 8);
-  camera.lookAt(0, 0.3, 0);
+  camera.position.set(8, 7, 8);
+  camera.lookAt(0, 0.4, 0);
 
   // ---------- Materials ----------
   var lineMat = new THREE.LineBasicMaterial({
