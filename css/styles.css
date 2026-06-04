@@ -228,11 +228,12 @@ ul { list-style: none; }
 .hero-visual {
   position: relative;
   width: 100%;
+  min-width: 280px;
   aspect-ratio: 1 / 1;
-  min-height: 340px;
+  min-height: 380px;
   background:
-    radial-gradient(circle at 50% 50%, rgba(201, 161, 74, 0.16), transparent 65%),
-    linear-gradient(180deg, rgba(255,255,255,0.4), rgba(246,243,236,0.7));
+    radial-gradient(circle at 50% 45%, rgba(201, 161, 74, 0.20), transparent 65%),
+    linear-gradient(180deg, rgba(255,255,255,0.5), rgba(246,243,236,0.8));
   border: 1px solid var(--gold-soft);
   border-radius: 6px;
   overflow: hidden;
