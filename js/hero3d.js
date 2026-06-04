@@ -1,6 +1,6 @@
 /* ============================================================
    Murallas · Hero 3D — Isometric stylized fortress (gold)
-   Slowly rotating geometric "muralla" with floating particles
+   Interactive: drag to rotate, click for pulse, momentum + settle
    ============================================================ */
 (function () {
   "use strict";
@@ -8,6 +8,7 @@
   if (typeof THREE === "undefined") return;
 
   var canvas = document.getElementById("heroCanvas");
+  var visual = document.getElementById("heroVisual");
   if (!canvas) return;
 
   var reduceMotion = window.matchMedia &&
@@ -40,7 +41,6 @@
     frustum, -frustum,
     0.1, 100
   );
-  // Classic 30° isometric viewpoint
   camera.position.set(8, 7, 8);
   camera.lookAt(0, 0.4, 0);
 
@@ -74,87 +74,59 @@
 
   // ---------- Fortress geometry ----------
   var fortress = new THREE.Group();
-
-  // Base platform
   addBlock(fortress, 5, 0.25, 5, 0, -0.125, 0, true);
 
-  // Four corner towers
-  var towerH = 2.1;
-  var towerS = 0.9;
-  var off = 2.0;
-  var towers = [
-    [ off, towerH / 2,  off],
-    [-off, towerH / 2,  off],
-    [ off, towerH / 2, -off],
-    [-off, towerH / 2, -off]
-  ];
-  towers.forEach(function (p) {
+  var towerH = 2.1, towerS = 0.9, off = 2.0;
+  [[ off, towerH/2,  off], [-off, towerH/2,  off],
+   [ off, towerH/2, -off], [-off, towerH/2, -off]].forEach(function (p) {
     addBlock(fortress, towerS, towerH, towerS, p[0], p[1], p[2], false);
   });
 
-  // Four walls between towers
-  var wallH = 1.2;
-  var wallT = 0.55;
-  var wallL = 3.1;
-  // North & South (along X)
-  addBlock(fortress, wallL, wallH, wallT, 0, wallH / 2,  off, false);
-  addBlock(fortress, wallL, wallH, wallT, 0, wallH / 2, -off, false);
-  // East & West (along Z)
-  addBlock(fortress, wallT, wallH, wallL,  off, wallH / 2, 0, false);
-  addBlock(fortress, wallT, wallH, wallL, -off, wallH / 2, 0, false);
+  var wallH = 1.2, wallT = 0.55, wallL = 3.1;
+  addBlock(fortress, wallL, wallH, wallT, 0, wallH/2,  off, false);
+  addBlock(fortress, wallL, wallH, wallT, 0, wallH/2, -off, false);
+  addBlock(fortress, wallT, wallH, wallL,  off, wallH/2, 0, false);
+  addBlock(fortress, wallT, wallH, wallL, -off, wallH/2, 0, false);
 
-  // Crenellations on top of each wall (alternating merlons)
   function crenellate(axis, sign) {
-    var count = 5;
-    var step = wallL / count;
+    var count = 5, step = wallL / count, size = 0.32;
     for (var i = 0; i < count; i++) {
       if (i % 2 !== 0) continue;
       var pos = -wallL / 2 + step / 2 + i * step;
-      var size = 0.32;
       var y = wallH + size / 2;
-      if (axis === "x") {
-        addBlock(fortress, size, size, size, pos, y, sign * off, false);
-      } else {
-        addBlock(fortress, size, size, size, sign * off, y, pos, false);
-      }
+      if (axis === "x") addBlock(fortress, size, size, size, pos, y, sign * off, false);
+      else              addBlock(fortress, size, size, size, sign * off, y, pos, false);
     }
   }
-  crenellate("x",  1);
-  crenellate("x", -1);
-  crenellate("z",  1);
-  crenellate("z", -1);
+  crenellate("x",  1); crenellate("x", -1);
+  crenellate("z",  1); crenellate("z", -1);
 
-  // Central inner pillar (subtle vertical accent)
   addBlock(fortress, 0.4, 1.6, 0.4, 0, 0.8, 0, true);
 
-  // Lower slightly so it sits visually centered
   fortress.position.y = -0.4;
   scene.add(fortress);
 
   // ---------- Floating gold particles ----------
-  var particles;
   var particleCount = 70;
-  (function makeParticles() {
-    var geo = new THREE.BufferGeometry();
-    var pos = new Float32Array(particleCount * 3);
-    for (var i = 0; i < particleCount; i++) {
-      pos[i * 3]     = (Math.random() - 0.5) * 16;
-      pos[i * 3 + 1] = Math.random() * 7 - 1;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 16;
-    }
-    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    var mat = new THREE.PointsMaterial({
-      color: GOLD,
-      size: 0.07,
-      transparent: true,
-      opacity: 0.75,
-      sizeAttenuation: true
-    });
-    particles = new THREE.Points(geo, mat);
-    scene.add(particles);
-  })();
+  var particleGeo = new THREE.BufferGeometry();
+  var particlePos = new Float32Array(particleCount * 3);
+  for (var i = 0; i < particleCount; i++) {
+    particlePos[i * 3]     = (Math.random() - 0.5) * 14;
+    particlePos[i * 3 + 1] = Math.random() * 7 - 1;
+    particlePos[i * 3 + 2] = (Math.random() - 0.5) * 14;
+  }
+  particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3));
+  var particleMat = new THREE.PointsMaterial({
+    color: GOLD,
+    size: 0.07,
+    transparent: true,
+    opacity: 0.75,
+    sizeAttenuation: true
+  });
+  var particles = new THREE.Points(particleGeo, particleMat);
+  scene.add(particles);
 
-  // ---------- Resize handling ----------
+  // ---------- Resize ----------
   function resize() {
     var w = canvas.clientWidth;
     var h = canvas.clientHeight;
@@ -170,37 +142,114 @@
   resize();
   window.addEventListener("resize", resize);
 
-  // ---------- Mouse parallax ----------
-  var mouseX = 0, mouseY = 0;
-  var targetX = 0, targetY = 0;
-  window.addEventListener("mousemove", function (e) {
-    mouseX = (e.clientX / window.innerWidth) - 0.5;
-    mouseY = (e.clientY / window.innerHeight) - 0.5;
-  }, { passive: true });
+  // ---------- Interaction: drag, momentum, click, hover ----------
+  var rotY = Math.PI / 6;
+  var rotX = 0;
+  var velY = 0;
+  var velX = 0;
+  var isDragging = false;
+  var dragMoved = false;
+  var lastX = 0, lastY = 0;
+  var pulse = 1;
+  var hover = false;
+  var idleFrames = 0;
+  var IDLE_THRESHOLD = 90; // ~1.5s @ 60fps until auto-rotation resumes
+
+  function pointerXY(e) {
+    if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onDown(e) {
+    isDragging = true;
+    dragMoved = false;
+    idleFrames = 0;
+    var p = pointerXY(e);
+    lastX = p.x; lastY = p.y;
+    velX = 0; velY = 0;
+    if (visual) visual.classList.add("engaged");
+    if (e.cancelable) e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!isDragging) return;
+    var p = pointerXY(e);
+    var dx = p.x - lastX;
+    var dy = p.y - lastY;
+    if (Math.abs(dx) + Math.abs(dy) > 2) dragMoved = true;
+    velY = dx * 0.006;
+    velX = dy * 0.005;
+    rotY += velY;
+    rotX += velX;
+    rotX = Math.max(-0.7, Math.min(0.7, rotX));
+    lastX = p.x; lastY = p.y;
+    idleFrames = 0;
+  }
+
+  function onUp() {
+    if (!isDragging) return;
+    isDragging = false;
+    if (!dragMoved) {
+      pulse = 1.14; // click pulse
+    }
+  }
+
+  function onEnter() { hover = true; idleFrames = 0; }
+  function onLeave() { hover = false; }
+
+  canvas.addEventListener("pointerdown", onDown);
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onUp);
+  canvas.addEventListener("pointerenter", onEnter);
+  canvas.addEventListener("pointerleave", onLeave);
 
   // ---------- Animation loop ----------
-  var baseRotY = Math.PI / 8;
   var t = 0;
   function animate() {
     requestAnimationFrame(animate);
-    t += reduceMotion ? 0 : 0.004;
+    if (!reduceMotion) t += 0.004;
 
-    targetX += (mouseX - targetX) * 0.04;
-    targetY += (mouseY - targetY) * 0.04;
+    if (!isDragging) {
+      // momentum decay
+      rotY += velY;
+      rotX += velX;
+      velY *= 0.94;
+      velX *= 0.94;
+      // settle X tilt back toward neutral
+      rotX *= 0.97;
 
-    fortress.rotation.y = baseRotY + t + targetX * 0.35;
-    fortress.rotation.x = -targetY * 0.18;
-
-    if (particles) {
-      particles.rotation.y = -t * 0.4;
-      var posAttr = particles.geometry.attributes.position;
-      for (var i = 0; i < particleCount; i++) {
-        var yIdx = i * 3 + 1;
-        posAttr.array[yIdx] += 0.003;
-        if (posAttr.array[yIdx] > 6) posAttr.array[yIdx] = -1.5;
+      // resume gentle auto-rotation after idle
+      idleFrames++;
+      if (idleFrames > IDLE_THRESHOLD && !reduceMotion) {
+        rotY += 0.0035;
       }
-      posAttr.needsUpdate = true;
     }
+
+    // pulse interpolation
+    pulse += (1 - pulse) * 0.09;
+    fortress.scale.setScalar(pulse);
+
+    fortress.rotation.y = rotY;
+    fortress.rotation.x = rotX;
+
+    // hover glow
+    var targetLine = hover ? 1.0 : 0.95;
+    var targetSoft = hover ? 0.75 : 0.55;
+    var targetParticle = hover ? 1.0 : 0.75;
+    lineMat.opacity     += (targetLine     - lineMat.opacity)     * 0.08;
+    lineMatSoft.opacity += (targetSoft     - lineMatSoft.opacity) * 0.08;
+    particleMat.opacity += (targetParticle - particleMat.opacity) * 0.08;
+
+    // drifting particles
+    particles.rotation.y = -t * 0.4;
+    var posAttr = particles.geometry.attributes.position;
+    for (var i = 0; i < particleCount; i++) {
+      var yIdx = i * 3 + 1;
+      posAttr.array[yIdx] += 0.003;
+      if (posAttr.array[yIdx] > 6) posAttr.array[yIdx] = -1.5;
+    }
+    posAttr.needsUpdate = true;
 
     renderer.render(scene, camera);
   }
