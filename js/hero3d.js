@@ -1,11 +1,10 @@
 /* ============================================================
-   Murallas · Hero 3D — Isometric SARLAFT transport network
+   Murallas · Hero 3D — Isometric transport network
    ------------------------------------------------------------
-   Concept: a transportation operations network (corner hubs +
-   gold routes) overseen by a central compliance core
-   (icosahedron). Small gold cargo cubes travel along the
-   routes; nodes pulse when "audited."  Drag to rotate, click
-   for a pulse, hover to brighten.  Isometric orthographic.
+   Concept: top-down isometric road network with trucks moving
+   along the roads. A central distribution hub with a small
+   compliance oversight icon. Periodic "audit" pulses at the
+   terminals. Drag to rotate, click for pulse, hover to brighten.
    ============================================================ */
 (function () {
   "use strict";
@@ -38,48 +37,47 @@
   var scene = new THREE.Scene();
 
   // ---------- Isometric orthographic camera ----------
-  var frustum = 3.6;
+  var frustum = 3.2;
   var camera = new THREE.OrthographicCamera(-frustum, frustum, frustum, -frustum, 0.1, 100);
-  camera.position.set(7, 6, 7);
-  camera.lookAt(0, 0.2, 0);
+  // Higher angle to emphasize the top-down map quality (more "above" the roads)
+  camera.position.set(6, 8, 6);
+  camera.lookAt(0, 0, 0);
 
   // ---------- Materials ----------
-  var lineMat     = new THREE.LineBasicMaterial({ color: GOLD,      transparent: true, opacity: 0.95 });
-  var lineMatSoft = new THREE.LineBasicMaterial({ color: GOLD_SOFT, transparent: true, opacity: 0.6  });
-  var routeMat    = new THREE.LineBasicMaterial({ color: GOLD_SOFT, transparent: true, opacity: 0.55 });
-  var faceMat     = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.08 });
-  var hubFaceMat  = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.18 });
+  var lineMatGold     = new THREE.LineBasicMaterial({ color: GOLD,      transparent: true, opacity: 0.95 });
+  var lineMatSoft     = new THREE.LineBasicMaterial({ color: GOLD_SOFT, transparent: true, opacity: 0.6  });
+  var lineMatInk      = new THREE.LineBasicMaterial({ color: INK,       transparent: true, opacity: 0.7  });
+  var faceMatPlate    = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.06 });
+  var faceMatRoad     = new THREE.MeshBasicMaterial({ color: GOLD,      transparent: true, opacity: 0.18 });
+  var faceMatTerminal = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.14 });
+  var faceMatHub      = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.20 });
+  var faceMatTruck    = new THREE.MeshBasicMaterial({ color: GOLD });
+  var faceMatCab      = new THREE.MeshBasicMaterial({ color: GOLD_DEEP });
 
   // World group (everything rotates with drag, except ambient particles)
   var world = new THREE.Group();
   scene.add(world);
 
   // ---------- Helpers ----------
-  function addBox(parent, w, h, d, x, y, z, soft, faceOverride) {
+  function addBox(parent, w, h, d, x, y, z, lineColor, faceMat) {
     var geo = new THREE.BoxGeometry(w, h, d);
-    var mesh = new THREE.Mesh(geo, faceOverride || faceMat);
+    var mesh = new THREE.Mesh(geo, faceMat);
     mesh.position.set(x, y, z);
-    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), soft ? lineMatSoft : lineMat);
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), lineColor);
     edges.position.set(x, y, z);
     parent.add(mesh); parent.add(edges);
     return { mesh: mesh, edges: edges };
   }
-  function lineBetween(parent, a, b, mat) {
-    var geo = new THREE.BufferGeometry().setFromPoints([a, b]);
-    var line = new THREE.Line(geo, mat);
-    parent.add(line);
-    return line;
-  }
 
   // ============================================================
-  // Base operational plate (the territory of operations)
+  // Ground plate (the operational region — flat, viewed from above)
   // ============================================================
-  addBox(world, 5.2, 0.18, 5.2, 0, -0.55, 0, true);
+  var GROUND_Y = -0.4;
+  addBox(world, 5.4, 0.16, 5.4, 0, GROUND_Y - 0.08, 0, lineMatSoft, faceMatPlate);
 
-  // Subtle inset border on the plate (decorative iso detail)
+  // Subtle inset border on the plate
   (function () {
-    var s = 2.0;
-    var y = -0.46;
+    var s = 2.2, y = GROUND_Y + 0.005;
     var pts = [
       new THREE.Vector3(-s, y, -s),
       new THREE.Vector3( s, y, -s),
@@ -87,43 +85,66 @@
       new THREE.Vector3(-s, y,  s),
       new THREE.Vector3(-s, y, -s)
     ];
-    var geo = new THREE.BufferGeometry().setFromPoints(pts);
-    world.add(new THREE.Line(geo, lineMatSoft));
+    world.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMatSoft));
   })();
 
   // ============================================================
-  // 4 corner hubs (operational locations / clients)
+  // Road network: flat gold strips forming a "+" intersection
   // ============================================================
-  var hubs = [];
-  var hubPositions = [
-    [-1.8, 0, -1.8],
-    [ 1.8, 0, -1.8],
-    [ 1.8, 0,  1.8],
-    [-1.8, 0,  1.8]
-  ];
-  hubPositions.forEach(function (p) {
-    // Pillar
-    addBox(world, 0.38, 0.7, 0.38, p[0], -0.1, p[2], false);
-    // Cap (slightly wider, shorter)
-    var capY = 0.34;
-    addBox(world, 0.55, 0.16, 0.55, p[0], capY, p[2], false, hubFaceMat);
-    hubs.push({
-      pos: new THREE.Vector3(p[0], capY + 0.08, p[2]),
+  var ROAD_Y = GROUND_Y + 0.02;
+  var ROAD_W = 0.55;
+  var ROAD_L = 4.4;
+  addBox(world, ROAD_L, 0.04, ROAD_W, 0, ROAD_Y, 0, lineMatSoft, faceMatRoad); // east-west
+  addBox(world, ROAD_W, 0.04, ROAD_L, 0, ROAD_Y, 0, lineMatSoft, faceMatRoad); // north-south
+
+  // Center lane dashes (small gold rectangles for visual rhythm)
+  function addLaneDash(x, z, w, d) {
+    var geo = new THREE.BoxGeometry(w, 0.02, d);
+    var mat = new THREE.MeshBasicMaterial({ color: GOLD, transparent: true, opacity: 0.85 });
+    var m = new THREE.Mesh(geo, mat);
+    m.position.set(x, ROAD_Y + 0.03, z);
+    world.add(m);
+  }
+  for (var i = -2; i <= 2; i++) {
+    if (Math.abs(i) < 0.5) continue;
+    addLaneDash(i * 0.55, 0, 0.22, 0.04); // east-west dashes
+    addLaneDash(0, i * 0.55, 0.04, 0.22); // north-south dashes
+  }
+
+  // ============================================================
+  // Terminals at the 4 road ends (low-profile buildings)
+  // ============================================================
+  var TERMINAL_Y = ROAD_Y + 0.18;
+  var terminals = [];
+  function addTerminal(x, z) {
+    // Platform
+    addBox(world, 0.9, 0.12, 0.9, x, ROAD_Y + 0.08, z, lineMatGold, faceMatTerminal);
+    // Building (small block on top of platform)
+    var b = addBox(world, 0.55, 0.32, 0.55, x, ROAD_Y + 0.30, z, lineMatGold, faceMatTerminal);
+    terminals.push({
+      pos: new THREE.Vector3(x, TERMINAL_Y, z),
+      building: b,
       pulse: 0
     });
-  });
+  }
+  addTerminal( 2.4, 0   ); // east
+  addTerminal(-2.4, 0   ); // west
+  addTerminal( 0,    2.4); // south
+  addTerminal( 0,   -2.4); // north
 
   // ============================================================
-  // Central compliance core (the SARLAFT oversight)
+  // Central distribution hub + compliance oversight icon
   // ============================================================
-  // Tall pillar
-  addBox(world, 0.28, 1.5, 0.28, 0, 0.25, 0, false);
+  // Wide low platform
+  addBox(world, 1.1, 0.10, 1.1, 0, ROAD_Y + 0.07, 0, lineMatGold, faceMatHub);
+  // Smaller block on the platform (control building)
+  addBox(world, 0.55, 0.28, 0.55, 0, ROAD_Y + 0.26, 0, lineMatGold, faceMatHub);
 
-  // Icosahedron core on top (compliance hub)
-  var coreY = 1.45;
-  var coreGeo = new THREE.IcosahedronGeometry(0.42, 0);
+  // Floating compliance oversight: small icosahedron above center
+  var coreY = ROAD_Y + 0.95;
+  var coreGeo = new THREE.IcosahedronGeometry(0.26, 0);
   var coreFaces = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({
-    color: INK, transparent: true, opacity: 0.22
+    color: INK, transparent: true, opacity: 0.18
   }));
   var coreEdges = new THREE.LineSegments(
     new THREE.EdgesGeometry(coreGeo),
@@ -133,8 +154,18 @@
   coreEdges.position.y = coreY;
   world.add(coreFaces); world.add(coreEdges);
 
-  // Small inner seed (the "value" being protected)
-  var seedGeo = new THREE.OctahedronGeometry(0.14, 0);
+  // Tether line from hub to oversight icon (dotted-like via thin segment)
+  (function () {
+    var pts = [
+      new THREE.Vector3(0, ROAD_Y + 0.40, 0),
+      new THREE.Vector3(0, coreY - 0.22, 0)
+    ];
+    var geo = new THREE.BufferGeometry().setFromPoints(pts);
+    world.add(new THREE.Line(geo, lineMatSoft));
+  })();
+
+  // Inner seed (the "value" being protected)
+  var seedGeo = new THREE.OctahedronGeometry(0.08, 0);
   var seedEdges = new THREE.LineSegments(
     new THREE.EdgesGeometry(seedGeo),
     new THREE.LineBasicMaterial({ color: GOLD_DEEP, transparent: true, opacity: 1 })
@@ -142,59 +173,61 @@
   seedEdges.position.y = coreY;
   world.add(seedEdges);
 
-  var centerPos = new THREE.Vector3(0, coreY, 0);
-
   // ============================================================
-  // Routes (gold lines): each hub -> center, plus perimeter
+  // Trucks: cab + cargo on the roads
   // ============================================================
+  // Routes: 8 segments (center→each terminal + each terminal→center)
+  var center = new THREE.Vector3(0, ROAD_Y + 0.05, 0);
   var routes = [];
-  hubs.forEach(function (h) {
-    lineBetween(world, h.pos, centerPos, routeMat);
-    routes.push({ from: h.pos.clone(), to: centerPos.clone() });
-    routes.push({ from: centerPos.clone(), to: h.pos.clone() });
-  });
-  // Perimeter routes (between adjacent hubs)
-  var hp = hubs.map(function (h) { return h.pos.clone(); });
-  [[0,1],[1,2],[2,3],[3,0]].forEach(function (pair) {
-    lineBetween(world, hp[pair[0]], hp[pair[1]], routeMat);
-    routes.push({ from: hp[pair[0]].clone(), to: hp[pair[1]].clone() });
+  terminals.forEach(function (t) {
+    var dropoff = t.pos.clone(); dropoff.y = ROAD_Y + 0.05;
+    routes.push({ from: center.clone(),  to: dropoff, terminalIdx: terminals.indexOf(t) });
+    routes.push({ from: dropoff.clone(), to: center.clone(), terminalIdx: -1 });
   });
 
-  // ============================================================
-  // Cargo cubes — small gold boxes that travel along routes
-  // ============================================================
-  var cargos = [];
-  var CARGO_SIZE = 0.13;
-  var cargoGeo = new THREE.BoxGeometry(CARGO_SIZE, CARGO_SIZE, CARGO_SIZE);
-  var cargoEdgeGeo = new THREE.EdgesGeometry(cargoGeo);
+  function makeTruck() {
+    var truck = new THREE.Group();
 
-  function spawnCargo(initialT) {
-    var mat = new THREE.MeshBasicMaterial({ color: GOLD });
-    var box = new THREE.Mesh(cargoGeo, mat);
-    var edges = new THREE.LineSegments(cargoEdgeGeo, new THREE.LineBasicMaterial({
-      color: INK, transparent: true, opacity: 0.85
-    }));
-    box.add(edges);
-    world.add(box);
-    var routeIdx = Math.floor(Math.random() * routes.length);
-    cargos.push({
-      mesh: box,
-      routeIdx: routeIdx,
-      t: typeof initialT === "number" ? initialT : Math.random(),
-      speed: 0.0028 + Math.random() * 0.0025
+    // Cargo box (back)
+    var cargoGeo = new THREE.BoxGeometry(0.30, 0.24, 0.42);
+    var cargo = new THREE.Mesh(cargoGeo, faceMatTruck);
+    var cargoEdges = new THREE.LineSegments(new THREE.EdgesGeometry(cargoGeo), lineMatInk);
+    cargo.position.set(0, 0.12, -0.10);
+    cargoEdges.position.set(0, 0.12, -0.10);
+    truck.add(cargo); truck.add(cargoEdges);
+
+    // Cab (front) — slightly smaller, deeper gold, sits in front of cargo
+    var cabGeo = new THREE.BoxGeometry(0.28, 0.20, 0.20);
+    var cab = new THREE.Mesh(cabGeo, faceMatCab);
+    var cabEdges = new THREE.LineSegments(new THREE.EdgesGeometry(cabGeo), lineMatInk);
+    cab.position.set(0, 0.10, 0.22);
+    cabEdges.position.set(0, 0.10, 0.22);
+    truck.add(cab); truck.add(cabEdges);
+
+    return truck;
+  }
+
+  var trucks = [];
+  var TRUCK_COUNT = 5;
+  for (var i = 0; i < TRUCK_COUNT; i++) {
+    var truck = makeTruck();
+    world.add(truck);
+    trucks.push({
+      mesh: truck,
+      routeIdx: Math.floor(Math.random() * routes.length),
+      t: i / TRUCK_COUNT,
+      speed: 0.0028 + Math.random() * 0.002
     });
   }
-  for (var i = 0; i < 8; i++) spawnCargo(i / 8);
 
   // ============================================================
-  // Ambient particles (data / monitoring stream) — kept in world
-  // space so they don't drag with the assembly
+  // Ambient particles
   // ============================================================
-  var particleCount = 80;
+  var particleCount = 70;
   var particleGeo = new THREE.BufferGeometry();
   var particlePos = new Float32Array(particleCount * 3);
   for (var i = 0; i < particleCount; i++) {
-    var r = 3.2 + Math.random() * 2.4;
+    var r = 3.2 + Math.random() * 2.2;
     var theta = Math.random() * Math.PI * 2;
     var phi = Math.acos(2 * Math.random() - 1);
     particlePos[i * 3]     = r * Math.sin(phi) * Math.cos(theta);
@@ -209,7 +242,7 @@
   scene.add(particles);
 
   // ============================================================
-  // Resize handling
+  // Resize
   // ============================================================
   function resize() {
     var w = canvas.clientWidth || (canvas.parentElement ? canvas.parentElement.clientWidth : 0);
@@ -233,7 +266,7 @@
   }
 
   // ============================================================
-  // Interaction: drag, momentum, click pulse, hover
+  // Interaction: drag, momentum, click, hover
   // ============================================================
   var rotY = Math.PI / 6;
   var rotX = 0;
@@ -265,7 +298,7 @@
     velX = dy * 0.005;
     rotY += velY;
     rotX += velX;
-    rotX = Math.max(-0.65, Math.min(0.65, rotX));
+    rotX = Math.max(-0.55, Math.min(0.55, rotX));
     lastX = p.x; lastY = p.y;
     idleFrames = 0;
   }
@@ -274,9 +307,8 @@
     isDragging = false;
     if (!dragMoved) {
       pulse = 1.14;
-      // Trigger an audit pulse on a random hub
-      var idx = Math.floor(Math.random() * hubs.length);
-      hubs[idx].pulse = 1;
+      var idx = Math.floor(Math.random() * terminals.length);
+      terminals[idx].pulse = 1;
     }
   }
   function onEnter() { hover = true; idleFrames = 0; }
@@ -289,8 +321,7 @@
   canvas.addEventListener("pointerenter", onEnter);
   canvas.addEventListener("pointerleave", onLeave);
 
-  // Auto random hub-pulse every ~3-5 seconds (audit signal)
-  var nextAuditAt = performance.now() + 2500 + Math.random() * 2500;
+  var nextAuditAt = performance.now() + 2200 + Math.random() * 2200;
 
   // ============================================================
   // Animation loop
@@ -307,66 +338,66 @@
       velY *= 0.94; velX *= 0.94;
       rotX *= 0.97;
       idleFrames++;
-      if (idleFrames > IDLE_THRESHOLD && !reduceMotion) rotY += 0.003;
+      if (idleFrames > IDLE_THRESHOLD && !reduceMotion) rotY += 0.0028;
     }
 
     pulse += (1 - pulse) * 0.09;
     world.scale.setScalar(pulse);
-
     world.rotation.y = rotY;
     world.rotation.x = rotX;
 
-    // Inner core spins gently
+    // Compliance core gently floats and rotates
+    coreEdges.position.y = coreY + Math.sin(t * 3) * 0.04;
+    coreFaces.position.y = coreEdges.position.y;
+    seedEdges.position.y = coreEdges.position.y;
     coreFaces.rotation.y = -t * 0.5;
     coreEdges.rotation.y = -t * 0.5;
-    seedEdges.rotation.y =  t * 1.2;
-    seedEdges.rotation.x =  t * 0.7;
+    seedEdges.rotation.y =  t * 1.4;
+    seedEdges.rotation.x =  t * 0.8;
 
-    // Update cargo positions along their routes
-    for (var i = 0; i < cargos.length; i++) {
-      var c = cargos[i];
-      c.t += c.speed;
-      if (c.t >= 1) {
-        c.t = 0;
-        c.routeIdx = Math.floor(Math.random() * routes.length);
+    // Drive trucks along routes
+    for (var i = 0; i < trucks.length; i++) {
+      var tk = trucks[i];
+      tk.t += tk.speed;
+      if (tk.t >= 1) {
+        // Trigger audit when truck reaches a terminal
+        var r = routes[tk.routeIdx];
+        if (r.terminalIdx >= 0) terminals[r.terminalIdx].pulse = 1;
+        tk.t = 0;
+        tk.routeIdx = Math.floor(Math.random() * routes.length);
       }
-      var r = routes[c.routeIdx];
-      tmpV.copy(r.from).lerp(r.to, c.t);
-      // Small vertical arc so cargo looks like it travels above the route
-      var arc = Math.sin(c.t * Math.PI) * 0.06;
-      c.mesh.position.set(tmpV.x, tmpV.y + arc, tmpV.z);
-      c.mesh.rotation.x += 0.02;
-      c.mesh.rotation.y += 0.025;
+      var route = routes[tk.routeIdx];
+      tmpV.copy(route.from).lerp(route.to, tk.t);
+      tk.mesh.position.set(tmpV.x, tmpV.y, tmpV.z);
+      // Face direction of travel
+      var dirX = route.to.x - route.from.x;
+      var dirZ = route.to.z - route.from.z;
+      tk.mesh.rotation.y = Math.atan2(dirX, dirZ);
     }
 
-    // Hub audit pulses (scale + opacity ripple) — uses scale on cap
+    // Terminal audit pulses (scale + glow)
     var now = performance.now();
     if (now >= nextAuditAt) {
-      var idx = Math.floor(Math.random() * hubs.length);
-      hubs[idx].pulse = 1;
-      nextAuditAt = now + 2500 + Math.random() * 2500;
+      var idx = Math.floor(Math.random() * terminals.length);
+      terminals[idx].pulse = 1;
+      nextAuditAt = now + 2200 + Math.random() * 2200;
     }
-    hubs.forEach(function (h) {
-      if (h.pulse > 0.01) h.pulse *= 0.93;
-      // We visualize the pulse via core hub seed glow (subtle global signal)
+    terminals.forEach(function (term) {
+      if (term.pulse > 0.01) term.pulse *= 0.93;
+      var s = 1 + term.pulse * 0.18;
+      term.building.mesh.scale.set(s, 1 + term.pulse * 0.45, s);
+      term.building.edges.scale.set(s, 1 + term.pulse * 0.45, s);
     });
-    var anyPulse = hubs.reduce(function (a, h) { return a + h.pulse; }, 0);
-    coreEdges.material.opacity = 0.95 + anyPulse * 0.05;
-    seedEdges.material.opacity = 1.0;
-    seedEdges.scale.setScalar(1 + anyPulse * 0.5);
 
     // Hover glow
-    var targetLine     = hover ? 1.0 : 0.95;
-    var targetSoft     = hover ? 0.8 : 0.6;
-    var targetRoute    = hover ? 0.85 : 0.55;
-    var targetParticle = hover ? 1.0 : 0.7;
-    lineMat.opacity     += (targetLine     - lineMat.opacity)     * 0.08;
+    var targetGold     = hover ? 1.0  : 0.95;
+    var targetSoft     = hover ? 0.8  : 0.6;
+    var targetParticle = hover ? 1.0  : 0.7;
+    lineMatGold.opacity += (targetGold     - lineMatGold.opacity) * 0.08;
     lineMatSoft.opacity += (targetSoft     - lineMatSoft.opacity) * 0.08;
-    routeMat.opacity    += (targetRoute    - routeMat.opacity)    * 0.08;
     particleMat.opacity += (targetParticle - particleMat.opacity) * 0.08;
 
-    // Particles ambient
-    particles.rotation.y = -t * 0.25;
+    particles.rotation.y = -t * 0.22;
 
     renderer.render(scene, camera);
   }
