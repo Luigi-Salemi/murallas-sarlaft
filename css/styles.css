@@ -91,38 +91,51 @@ main { position: relative; z-index: 10; }
 /* Each section overlays the canvas but lets it bleed through */
 .stage-section { position: relative; background: transparent; }
 
-/* Hero zone — full viewport, content overlay panel */
+/* Hero zone — full viewport, compact overlay panel anchored top-left */
 .hero {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  padding-block: clamp(2rem, 6vw, 4rem);
+  align-items: flex-start;
+  padding-block: clamp(2rem, 5vw, 3.5rem);
   background: transparent !important;
   border: none;
 }
-.hero-overlay { width: 100%; }
+.hero-overlay {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+}
 .overlay-panel {
-  max-width: 540px;
-  background: rgba(255, 255, 255, 0.70);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  border-radius: 12px;
-  padding: clamp(1.4rem, 2.5vw, 2rem);
-  box-shadow: 0 12px 30px rgba(29, 78, 216, 0.08);
+  max-width: 420px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 14px;
+  padding: clamp(1.2rem, 2vw, 1.6rem) clamp(1.4rem, 2.2vw, 1.8rem);
+  box-shadow: 0 16px 40px rgba(29, 78, 216, 0.10);
+  margin-top: clamp(1rem, 4vh, 3rem);
 }
 .overlay-num {
   font-family: var(--serif);
-  font-size: 0.78rem;
-  letter-spacing: 0.3em;
+  font-size: 0.72rem;
+  letter-spacing: 0.32em;
   color: #1e40af;
   font-weight: 600;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.75rem;
 }
-.hero .hero-title { font-size: clamp(1.7rem, 3.4vw, 2.8rem); line-height: 1.08; }
-.hero .hero-lead { font-size: clamp(0.95rem, 1.05vw, 1.05rem); margin-top: 1rem; }
-.hero .hero-actions { margin-top: 1.6rem; }
-.hero .btn { padding: 0.7rem 1.2rem; font-size: 0.88rem; }
+.hero .hero-title {
+  font-size: clamp(1.55rem, 2.6vw, 2.2rem);
+  line-height: 1.10;
+  margin-top: 0.4rem;
+}
+.hero .hero-lead {
+  font-size: clamp(0.9rem, 0.95vw, 0.98rem);
+  line-height: 1.55;
+  margin-top: 0.9rem;
+}
+.hero .hero-actions { margin-top: 1.3rem; gap: 0.6rem; }
+.hero .btn { padding: 0.6rem 1.1rem; font-size: 0.85rem; }
 
 /* Blue scope: hero eyebrow + serif italic */
 .hero .eyebrow { color: #1e40af !important; }

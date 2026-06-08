@@ -50,22 +50,22 @@
   camera.position.set(7, 5, 8);
   camera.lookAt(0, 0, 0);
 
-  // Camera keyframes — one per page section (7 stops across the entire page)
-  // 0: Hero (wide overview)
-  // 1: Trust strip (slight push in)
-  // 2: Services (close on HQ from above)
-  // 3: About (pan to NE warehouse)
-  // 4: Approach (swing to NW customs, opposite side)
-  // 5: CTA (pull back, high angle)
-  // 6: Contact (settle on the hub)
+  // Camera keyframes — narrative tour through the transport route
+  // 0: HERO            — wide overview, see whole route
+  // 1: TRUST           — push toward warehouse (origin)
+  // 2: SERVICES        — close on the warehouse + container yard
+  // 3: ABOUT           — pan along highway to the SARLAFT checkpoint
+  // 4: APPROACH        — close on the checkpoint scan + trucks
+  // 5: CTA             — wide aerial swing
+  // 6: CONTACT         — close on downtown destination
   var camStops = [
-    { pos: new THREE.Vector3( 7,    5,    8   ), look: new THREE.Vector3( 0,    0.2, 0   ), zoom: 1.30 },
-    { pos: new THREE.Vector3( 5.5,  4,    7   ), look: new THREE.Vector3( 0,    0.5, 0   ), zoom: 1.55 },
-    { pos: new THREE.Vector3( 2.5,  3,    5   ), look: new THREE.Vector3( 0,    0.7, 0   ), zoom: 1.80 },
-    { pos: new THREE.Vector3( 7,    4,    -3  ), look: new THREE.Vector3( 3,    0.3, -2.5), zoom: 1.45 },
-    { pos: new THREE.Vector3(-7,    5,    -2  ), look: new THREE.Vector3(-1.5,  0.3, -2.0), zoom: 1.45 },
-    { pos: new THREE.Vector3(-6,    7,    7   ), look: new THREE.Vector3( 0.5,  0,   1.2 ), zoom: 1.25 },
-    { pos: new THREE.Vector3( 0,    8,    9   ), look: new THREE.Vector3( 0,    0,   0   ), zoom: 1.50 }
+    { pos: new THREE.Vector3( 6,    5,    9   ), look: new THREE.Vector3( 0,    0.3, 0   ), zoom: 1.20 },
+    { pos: new THREE.Vector3(-1,    4,    7   ), look: new THREE.Vector3(-3,    0.3, 0   ), zoom: 1.50 },
+    { pos: new THREE.Vector3(-6,    3.5,  5   ), look: new THREE.Vector3(-3.5,  0.5, 0.5 ), zoom: 1.75 },
+    { pos: new THREE.Vector3(-2,    3,    5   ), look: new THREE.Vector3( 0.5,  0.5, 0   ), zoom: 1.55 },
+    { pos: new THREE.Vector3( 1.5,  2.5,  4.5 ), look: new THREE.Vector3( 0.5,  0.6, 0   ), zoom: 2.00 },
+    { pos: new THREE.Vector3( 2,    8,    9   ), look: new THREE.Vector3( 1,    0,   0   ), zoom: 1.25 },
+    { pos: new THREE.Vector3( 8,    4,    5   ), look: new THREE.Vector3( 4,    0.8, 0   ), zoom: 1.60 }
   ];
   var camPos = new THREE.Vector3();
   var camLook = new THREE.Vector3();
@@ -168,223 +168,188 @@
   })();
 
   // ============================================================
-  // CENTRAL HQ — focal building with blue scan-beam door
+  // BODEGA / WAREHOUSE — origin point (west side)
   // ============================================================
-  var hqGroup = new THREE.Group();
-  world.add(hqGroup);
-  addBox(hqGroup, 1.5, 0.45, 1.5, 0, GROUND_Y + 0.225, 0, matWhite);
-  addBox(hqGroup, 1.15, 0.40, 1.15, 0, GROUND_Y + 0.65, 0, matPaper);
-  addBox(hqGroup, 0.75, 0.35, 0.75, 0, GROUND_Y + 1.025, 0, matWhite);
-  addBox(hqGroup, 0.55, 0.07, 0.55, 0, GROUND_Y + 1.235, 0, matShadeLt);
-  addBox(hqGroup, 0.28, 0.16, 0.28, 0, GROUND_Y + 1.345, 0, matShadeLt);
-  // Antenna
-  var spire = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.020, 0.45, 6), matFigure);
-  spire.position.set(0, GROUND_Y + 1.65, 0);
-  spire.castShadow = true;
-  hqGroup.add(spire);
-  var spireBall = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), matBlueDeep);
-  spireBall.position.set(0, GROUND_Y + 1.90, 0);
-  hqGroup.add(spireBall);
-  // Blue entrance door (scan beam origin)
-  var door = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.26, 0.28), matBlue);
-  door.position.set(0.77, GROUND_Y + 0.17, 0);
-  hqGroup.add(door);
-  // Window stripes
-  for (var i = 0; i < 2; i++) {
-    var yWin = GROUND_Y + 0.15 + i * 0.18;
-    var s1 = new THREE.Mesh(new THREE.BoxGeometry(1.52, 0.03, 1.52), matShadeLt);
-    s1.position.set(0, yWin, 0); hqGroup.add(s1);
-  }
-  for (var i = 0; i < 2; i++) {
-    var yWin = GROUND_Y + 0.50 + i * 0.14;
-    var s2 = new THREE.Mesh(new THREE.BoxGeometry(1.17, 0.03, 1.17), matShadeLt);
-    s2.position.set(0, yWin, 0); hqGroup.add(s2);
-  }
-  var hqTop = GROUND_Y + 1.345;
-
-  // ============================================================
-  // COOLING TOWERS (with steam puffs) — north area
-  // ============================================================
-  function makeCoolingTower(x, z, h) {
-    var grp = new THREE.Group();
-    var bodyGeo = new THREE.CylinderGeometry(0.32, 0.50, h, 16);
-    var body = new THREE.Mesh(bodyGeo, matWhite);
-    body.position.set(x, GROUND_Y + h / 2, z);
-    body.castShadow = true; body.receiveShadow = true;
-    var rim = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.36, 0.32, 0.05, 16),
-      matShadeLt
+  var WAREHOUSE_X = -4.0, WAREHOUSE_Z = 0;
+  var warehouse = new THREE.Group(); world.add(warehouse);
+  // Main warehouse body — wide, long, low
+  addBox(warehouse, 2.4, 0.75, 1.8, WAREHOUSE_X, GROUND_Y + 0.375, WAREHOUSE_Z, matWhite);
+  // Flat roof cap
+  addBox(warehouse, 2.5, 0.05, 1.9, WAREHOUSE_X, GROUND_Y + 0.775, WAREHOUSE_Z, matShadeLt);
+  // 4 loading bay doors on the east face (facing the highway)
+  for (var i = 0; i < 4; i++) {
+    var doorZ = WAREHOUSE_Z + (i - 1.5) * 0.40;
+    var bayDoor = new THREE.Mesh(
+      new THREE.BoxGeometry(0.05, 0.45, 0.30),
+      new THREE.MeshLambertMaterial({ color: 0x4a5568 })
     );
-    rim.position.set(x, GROUND_Y + h + 0.025, z);
-    grp.add(body); grp.add(rim);
-    // Steam cluster (5 puffs above)
-    var steamMat = new THREE.MeshLambertMaterial({
-      color: 0xffffff, transparent: true, opacity: 0.75
-    });
-    for (var i = 0; i < 6; i++) {
-      var puff = new THREE.Mesh(
-        new THREE.SphereGeometry(0.16 + Math.random() * 0.10, 8, 8),
-        steamMat
-      );
-      puff.position.set(
-        x + (Math.random() - 0.5) * 0.25,
-        GROUND_Y + h + 0.20 + i * 0.10,
-        z + (Math.random() - 0.5) * 0.25
-      );
-      grp.add(puff);
-    }
-    world.add(grp);
+    bayDoor.position.set(WAREHOUSE_X + 1.21, GROUND_Y + 0.225, doorZ);
+    warehouse.add(bayDoor);
   }
-  makeCoolingTower(-1.4, -3.4, 1.10);
-  makeCoolingTower(-2.4, -3.4, 0.90);
-
-  // ============================================================
-  // VAULTED WAREHOUSES (curved roof) — east side
-  // ============================================================
-  function makeVaultedWarehouse(cx, cz, w, h, d) {
-    var grp = new THREE.Group();
-    // Box body
-    addBox(grp, w, h, d, cx, GROUND_Y + h / 2, cz, matWhite);
-    // Half-cylinder roof
-    var roofGeo = new THREE.CylinderGeometry(w / 2, w / 2, d, 16, 1, false, 0, Math.PI);
-    var roof = new THREE.Mesh(roofGeo, matPaper);
-    roof.rotation.z = Math.PI / 2;
-    roof.position.set(cx, GROUND_Y + h, cz);
-    roof.castShadow = true;
-    roof.receiveShadow = true;
-    grp.add(roof);
-    // Roof ridge lines for detail (3 ribs along length)
-    for (var i = 0; i < 4; i++) {
-      var rib = new THREE.Mesh(
-        new THREE.BoxGeometry(w * 1.01, 0.025, 0.04),
-        matShadeLt
-      );
-      rib.position.set(cx, GROUND_Y + h + w / 2 - 0.01, cz - d / 2 + (i + 1) * (d / 5));
-      grp.add(rib);
-    }
-    world.add(grp);
+  // 3 roof ridge ribs
+  for (var i = 0; i < 3; i++) {
+    var ridgeZ = WAREHOUSE_Z + (i - 1) * 0.55;
+    addBox(warehouse, 2.45, 0.03, 0.08, WAREHOUSE_X, GROUND_Y + 0.81, ridgeZ, matShadeLt);
   }
-  makeVaultedWarehouse(4.2, -2.2, 1.5, 0.55, 1.8);
-  makeVaultedWarehouse(4.2,  0.4, 1.3, 0.50, 1.4);
-
-  // ============================================================
-  // SERVER RACK ARRAY (grid) — like data-center detail
-  // ============================================================
-  function makeServerArray(cx, cz, rows, cols) {
-    var w = 0.20, h = 0.36, d = 0.32, gap = 0.045;
-    for (var r = 0; r < rows; r++) {
-      for (var c = 0; c < cols; c++) {
-        var x = cx + (c - (cols - 1) / 2) * (w + gap);
-        var z = cz + (r - (rows - 1) / 2) * (d + gap);
-        addBox(world, w, h, d, x, GROUND_Y + h / 2, z, matWhite);
-        // Top accent + front vents
-        addBox(world, w * 0.55, 0.025, d * 0.55, x, GROUND_Y + h + 0.015, z, matShadeLt);
-        var ventGeo = new THREE.BoxGeometry(w * 0.7, 0.02, d + 0.005);
-        for (var v = 0; v < 3; v++) {
-          var vent = new THREE.Mesh(ventGeo, matShadeLt);
-          vent.position.set(x, GROUND_Y + 0.08 + v * 0.10, z);
-          world.add(vent);
+  // Sign panel on the roof / front
+  var sign = new THREE.Mesh(
+    new THREE.BoxGeometry(0.95, 0.20, 0.06),
+    matBlueDeep
+  );
+  sign.position.set(WAREHOUSE_X + 0.4, GROUND_Y + 0.95, WAREHOUSE_Z - 0.92);
+  warehouse.add(sign);
+  // Small office annex (south side of warehouse)
+  addBox(warehouse, 0.80, 0.55, 0.80,
+    WAREHOUSE_X - 1.5, GROUND_Y + 0.275, WAREHOUSE_Z + 0.5, matWhite);
+  addBox(warehouse, 0.40, 0.10, 0.40,
+    WAREHOUSE_X - 1.5, GROUND_Y + 0.60, WAREHOUSE_Z + 0.5, matShadeLt);
+  // Container yard adjacent (south of warehouse)
+  (function makeContainerYard() {
+    var w = 0.40, h = 0.18, d = 0.20, gap = 0.025;
+    var cx = WAREHOUSE_X - 0.4, cz = WAREHOUSE_Z + 1.45;
+    var rows = 2, cols = 4, layers = 2;
+    for (var l = 0; l < layers; l++) {
+      for (var r = 0; r < rows; r++) {
+        for (var c = 0; c < cols; c++) {
+          if (l > 0 && Math.random() > 0.6) continue;
+          var x = cx + (c - (cols - 1) / 2) * (w + gap);
+          var z = cz + (r - (rows - 1) / 2) * (d + gap);
+          var y = GROUND_Y + 0.005 + h / 2 + l * (h + 0.005);
+          var mat = l === 0 ? matWhite : matShadeLt;
+          addBox(world, w, h, d, x, y, z, mat);
         }
       }
     }
-  }
-  makeServerArray(2.5, -3.0, 3, 4);
+  })();
 
   // ============================================================
-  // SERVER RACK ROW (linear) — west of HQ
+  // DOWNTOWN CITY CENTER — destination (east side)
   // ============================================================
-  (function () {
-    var count = 5;
-    var w = 0.22, h = 0.42, d = 0.42, gap = 0.06;
-    var cx = -3.5, cz = 0.2;
-    for (var i = 0; i < count; i++) {
-      var x = cx + (i - (count - 1) / 2) * (w + gap);
-      addBox(world, w, h, d, x, GROUND_Y + h / 2, cz, matWhite);
-      // Front vent grilles
-      for (var v = 0; v < 3; v++) {
-        var vent = new THREE.Mesh(
-          new THREE.BoxGeometry(w * 0.7, 0.025, d + 0.005),
+  function makeSkyscraper(x, z, h, w, glass, antennaChance) {
+    var grp = new THREE.Group();
+    addBox(grp, w, h, w, x, GROUND_Y + h / 2, z, matWhite);
+    // Vertical glass strips for the "tall building" look
+    if (glass) {
+      var n = 4;
+      for (var i = 0; i < n; i++) {
+        var sx = x + (i - (n - 1) / 2) * (w / (n + 0.5));
+        var s = new THREE.Mesh(
+          new THREE.BoxGeometry(0.035, h * 0.78, w + 0.012),
           matShadeLt
         );
-        vent.position.set(x, GROUND_Y + 0.08 + v * 0.12, cz);
-        world.add(vent);
+        s.position.set(sx, GROUND_Y + h / 2, z);
+        grp.add(s);
       }
-      // Top accent
-      addBox(world, w * 0.5, 0.02, d * 0.55, x, GROUND_Y + h + 0.012, cz, matShadeLt);
+      // Side-face glass strips too
+      for (var i = 0; i < n; i++) {
+        var sz = z + (i - (n - 1) / 2) * (w / (n + 0.5));
+        var s = new THREE.Mesh(
+          new THREE.BoxGeometry(w + 0.012, h * 0.78, 0.035),
+          matShadeLt
+        );
+        s.position.set(x, GROUND_Y + h / 2, sz);
+        grp.add(s);
+      }
     }
-  })();
+    // Stepped cap
+    addBox(grp, w * 0.78, 0.08, w * 0.78, x, GROUND_Y + h + 0.04, z, matShadeLt);
+    addBox(grp, w * 0.50, 0.14, w * 0.50, x, GROUND_Y + h + 0.15, z, matWhite);
+    if (antennaChance) {
+      var ant = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.014, 0.022, 0.35, 6), matFigure
+      );
+      ant.position.set(x, GROUND_Y + h + 0.40, z);
+      ant.castShadow = true;
+      grp.add(ant);
+      // Tip ball
+      var tip = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), matBlueDeep);
+      tip.position.set(x, GROUND_Y + h + 0.60, z);
+      grp.add(tip);
+    }
+    world.add(grp);
+  }
+
+  // Downtown cluster — varied heights for skyline
+  makeSkyscraper( 4.3, -1.0, 2.50, 0.95, true,  true );  // tallest
+  makeSkyscraper( 3.4,  0.3, 1.70, 0.80, true,  false);
+  makeSkyscraper( 4.7,  1.1, 2.00, 0.85, true,  true );
+  makeSkyscraper( 3.7, -2.2, 1.40, 0.75, false, false);
+  makeSkyscraper( 5.4,  0.0, 1.20, 0.70, true,  false);
+  makeSkyscraper( 2.8, -1.0, 0.95, 0.65, false, false);
+  makeSkyscraper( 5.0,  2.4, 1.55, 0.78, true,  true );
+  makeSkyscraper( 3.0,  1.5, 1.05, 0.62, false, false);
 
   // ============================================================
-  // STORAGE TANK (cylinder + dome) — south
+  // AUDIT CHECKPOINT — SARLAFT scan gate over the highway
+  // ============================================================
+  var CHECK_X = 0.5, CHECK_Z = 0;
+  var checkpoint = new THREE.Group(); world.add(checkpoint);
+  // Two pillars (one on each side of road)
+  var pillarL = new THREE.Mesh(
+    new THREE.BoxGeometry(0.20, 0.80, 0.20), matWhite
+  );
+  pillarL.position.set(CHECK_X, GROUND_Y + 0.40, CHECK_Z - 0.55);
+  pillarL.castShadow = true;
+  var pillarR = new THREE.Mesh(
+    new THREE.BoxGeometry(0.20, 0.80, 0.20), matWhite
+  );
+  pillarR.position.set(CHECK_X, GROUND_Y + 0.40, CHECK_Z + 0.55);
+  pillarR.castShadow = true;
+  // Top arch beam
+  var archBeam = new THREE.Mesh(
+    new THREE.BoxGeometry(0.20, 0.14, 1.30), matBlueDeep
+  );
+  archBeam.position.set(CHECK_X, GROUND_Y + 0.87, CHECK_Z);
+  archBeam.castShadow = true;
+  // Scanner unit hanging from arch
+  var scanner = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.08, 0.30), matBlue
+  );
+  scanner.position.set(CHECK_X, GROUND_Y + 0.77, CHECK_Z);
+  checkpoint.add(pillarL, pillarR, archBeam, scanner);
+  // Small operator booth next to checkpoint
+  addBox(checkpoint, 0.55, 0.35, 0.55, CHECK_X + 0.2, GROUND_Y + 0.175, CHECK_Z - 1.2, matWhite);
+  addBox(checkpoint, 0.30, 0.06, 0.30, CHECK_X + 0.2, GROUND_Y + 0.38, CHECK_Z - 1.2, matShadeLt);
+
+  // ============================================================
+  // GAS / SERVICE STATION (mid-route, south of highway)
   // ============================================================
   (function () {
     var grp = new THREE.Group();
-    var x = 1.2, z = 3.6;
-    var body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.32, 0.32, 0.55, 16), matWhite
-    );
-    body.position.set(x, GROUND_Y + 0.275, z);
-    body.castShadow = true; body.receiveShadow = true;
-    var dome = new THREE.Mesh(
-      new THREE.SphereGeometry(0.32, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
-      matWhite
-    );
-    dome.position.set(x, GROUND_Y + 0.55, z);
-    dome.castShadow = true;
-    grp.add(body); grp.add(dome);
-    // Side ladder/stripe detail
-    var ladder = new THREE.Mesh(
-      new THREE.BoxGeometry(0.025, 0.50, 0.04), matShadeLt
-    );
-    ladder.position.set(x + 0.33, GROUND_Y + 0.275, z);
-    grp.add(ladder);
+    var x = -1.3, z = 2.2;
+    // Convenience store
+    addBox(grp, 0.90, 0.45, 0.80, x, GROUND_Y + 0.225, z, matWhite);
+    addBox(grp, 0.95, 0.05, 0.85, x, GROUND_Y + 0.475, z, matShadeLt);
+    // Canopy over pumps
+    addBox(grp, 1.10, 0.05, 0.70, x + 1.0, GROUND_Y + 0.65, z, matWhite);
+    // Canopy supports
+    for (var i = -1; i <= 1; i += 2) {
+      var support = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, 0.60, 6), matFigure
+      );
+      support.position.set(x + 1.0 + i * 0.4, GROUND_Y + 0.30, z + 0.20);
+      support.castShadow = true;
+      grp.add(support);
+      var support2 = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.025, 0.025, 0.60, 6), matFigure
+      );
+      support2.position.set(x + 1.0 + i * 0.4, GROUND_Y + 0.30, z - 0.20);
+      support2.castShadow = true;
+      grp.add(support2);
+    }
+    // 2 fuel pumps
+    for (var p = 0; p < 2; p++) {
+      var pump = new THREE.Mesh(
+        new THREE.BoxGeometry(0.10, 0.30, 0.08), matBlueDeep
+      );
+      pump.position.set(x + 1.0 + (p - 0.5) * 0.30, GROUND_Y + 0.15, z);
+      pump.castShadow = true;
+      grp.add(pump);
+    }
     world.add(grp);
   })();
 
-  // ============================================================
-  // WIND TURBINES (animated blades) — far edge
-  // ============================================================
-  var windTurbines = [];
-  function makeWindTurbine(x, z, h) {
-    var grp = new THREE.Group();
-    // Pole
-    var pole = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.035, 0.055, h, 8), matWhite
-    );
-    pole.position.set(x, GROUND_Y + h / 2, z);
-    pole.castShadow = true;
-    grp.add(pole);
-    // Hub housing
-    var hub = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 0.10, 0.18), matShadeLt
-    );
-    hub.position.set(x, GROUND_Y + h, z);
-    hub.castShadow = true;
-    grp.add(hub);
-    // Rotor group (3 blades)
-    var rotor = new THREE.Group();
-    for (var i = 0; i < 3; i++) {
-      var bladeWrap = new THREE.Group();
-      var blade = new THREE.Mesh(
-        new THREE.BoxGeometry(0.50, 0.05, 0.025), matWhite
-      );
-      blade.position.set(0.27, 0, 0);
-      blade.castShadow = true;
-      bladeWrap.add(blade);
-      bladeWrap.rotation.z = i * (Math.PI * 2 / 3);
-      rotor.add(bladeWrap);
-    }
-    rotor.position.set(x, GROUND_Y + h, z + 0.10);
-    grp.add(rotor);
-    world.add(grp);
-    windTurbines.push(rotor);
-  }
-  makeWindTurbine(-5.5, -3.0, 1.4);
-  makeWindTurbine(-5.0, -4.4, 1.2);
-  makeWindTurbine(-5.8, -1.5, 1.5);
-  makeWindTurbine(-6.0, -3.8, 1.3);
-  makeWindTurbine(-4.8, -2.0, 1.0);
-  makeWindTurbine(-5.4,  0.2, 1.25);
+  var hqTop = GROUND_Y + 0.95; // for compatibility with compliance core code below
 
   // ============================================================
   // Container stacks (2 yards — modest, vectrfl-style)
@@ -404,8 +369,7 @@
       }
     }
   }
-  makeContainerStack(-5.0, 0.5, 2, 3, 2);
-  makeContainerStack( 0.0, 5.0, 2, 4, 2);
+  // (the warehouse container yard is built separately above)
 
   // ============================================================
   // Tiny human figures (sphere head + cylinder body)
@@ -425,46 +389,61 @@
     world.add(grp);
     return grp;
   }
-  makeFigure(-1.3, 1.5);
-  makeFigure( 1.5, -1.2);
-  makeFigure( 2.0,  2.0);
-  makeFigure(-1.8, -1.5);
-  makeFigure( 4.0,  0.3);
-  makeFigure(-3.5,  1.0);
+  // Workers at the warehouse + pedestrians downtown
+  makeFigure(-3.2,  1.5);
+  makeFigure(-2.8, -1.0);
+  makeFigure(-4.5,  0.5);
+  makeFigure( 0.5, -1.0);
+  makeFigure( 3.6, -0.2);
+  makeFigure( 4.2,  1.8);
+  makeFigure( 3.0,  0.5);
 
   // ============================================================
-  // Bezier routes (blue + red)
+  // HIGHWAY — multi-lane curving from warehouse to downtown
   // ============================================================
   var routes = [];
-  var BLDGS = {
-    hq:       new THREE.Vector3( 0,    GROUND_Y + 0.04,  0   ),
-    warehouse:new THREE.Vector3( 3.2,  GROUND_Y + 0.04, -2.6 ),
-    customs:  new THREE.Vector3(-3.2,  GROUND_Y + 0.04, -2.0 ),
-    storage:  new THREE.Vector3( 2.8,  GROUND_Y + 0.04,  2.8 ),
-    depot:    new THREE.Vector3(-2.8,  GROUND_Y + 0.04,  2.6 )
-  };
-
-  function makeRoute(from, to, curvature, color) {
-    var c = (typeof curvature === "number") ? curvature : 0.32;
-    var p0 = from.clone(); p0.y = GROUND_Y + 0.025;
-    var p2 = to.clone();   p2.y = GROUND_Y + 0.025;
+  function makeHighway(p0Raw, p2Raw, curvature, lanes, centerColor) {
+    var p0 = p0Raw.clone(); p0.y = GROUND_Y + 0.025;
+    var p2 = p2Raw.clone(); p2.y = GROUND_Y + 0.025;
     var mid = p0.clone().lerp(p2, 0.5);
     var dir = p2.clone().sub(p0);
     var perp = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
-    var p1 = mid.add(perp.multiplyScalar(dir.length() * c));
-    var curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
-    var pts = curve.getPoints(80);
-    var geo = new THREE.BufferGeometry().setFromPoints(pts);
-    var mainMat = color === "red" ? matRouteRed : matRouteBlue;
-    world.add(new THREE.Line(geo, mainMat));
-    routes.push({ curve: curve, color: color });
+    var p1Main = mid.clone().add(perp.clone().multiplyScalar(dir.length() * curvature));
+    // Build each parallel lane
+    for (var l = 0; l < lanes; l++) {
+      var laneOffset = (l - (lanes - 1) / 2) * 0.16;
+      var laneP0 = p0.clone().add(perp.clone().multiplyScalar(laneOffset));
+      var laneP1 = p1Main.clone().add(perp.clone().multiplyScalar(laneOffset));
+      var laneP2 = p2.clone().add(perp.clone().multiplyScalar(laneOffset));
+      var curve = new THREE.QuadraticBezierCurve3(laneP0, laneP1, laneP2);
+      var pts = curve.getPoints(80);
+      var geo = new THREE.BufferGeometry().setFromPoints(pts);
+      var isMid = (l === Math.floor(lanes / 2));
+      var mat = isMid ? (centerColor === "red" ? matRouteRed : matRouteBlue) :
+                        new THREE.LineBasicMaterial({ color: SHADE_MID, transparent: true, opacity: 0.55 });
+      world.add(new THREE.Line(geo, mat));
+      routes.push({ curve: curve, color: isMid ? centerColor : "lane" });
+    }
   }
-  makeRoute(BLDGS.hq, BLDGS.warehouse,  0.32, "blue");
-  makeRoute(BLDGS.hq, BLDGS.customs,   -0.32, "red");
-  makeRoute(BLDGS.hq, BLDGS.storage,   -0.28, "blue");
-  makeRoute(BLDGS.hq, BLDGS.depot,      0.28, "blue");
-  makeRoute(BLDGS.warehouse, BLDGS.storage,  0.45, "red");
-  makeRoute(BLDGS.depot, BLDGS.customs,      0.40, "blue");
+
+  // Main highway: warehouse east face → through checkpoint → downtown
+  var WAREHOUSE_EXIT = new THREE.Vector3(WAREHOUSE_X + 1.5, 0, WAREHOUSE_Z);
+  var DOWNTOWN_ENTRY = new THREE.Vector3(2.6, 0, 0);
+  makeHighway(WAREHOUSE_EXIT, DOWNTOWN_ENTRY, -0.05, 4, "blue");
+
+  // Secondary route — northern bypass (red, flagged audit branch)
+  makeHighway(
+    new THREE.Vector3(WAREHOUSE_X + 0.5, 0, WAREHOUSE_Z - 1.2),
+    new THREE.Vector3(3.0, 0, -2.5),
+    -0.30, 2, "red"
+  );
+
+  // Southern service road (toward gas station)
+  makeHighway(
+    new THREE.Vector3(WAREHOUSE_X + 0.8, 0, WAREHOUSE_Z + 1.3),
+    new THREE.Vector3(2.5, 0, 1.5),
+    0.25, 2, "blue"
+  );
 
   // ============================================================
   // Trucks following the curves
@@ -529,11 +508,12 @@
   seedEdges.position.y = coreBaseY;
   world.add(seedEdges);
 
-  // Elegant single CURVING scan beam from HQ door — bezier arc
+  // Elegant CURVING scan beam from the checkpoint scanner — bezier arc
+  // emanating down along the highway (audit ray scanning the trucks)
   var beamCurve = new THREE.QuadraticBezierCurve3(
-    new THREE.Vector3(0.82, GROUND_Y + 0.10, 0.0),
-    new THREE.Vector3(2.4,  GROUND_Y + 0.55, 0.5),
-    new THREE.Vector3(4.6,  GROUND_Y + 0.04, 1.8)
+    new THREE.Vector3(CHECK_X,        GROUND_Y + 0.72, CHECK_Z),
+    new THREE.Vector3(CHECK_X + 1.2,  GROUND_Y + 0.35, CHECK_Z),
+    new THREE.Vector3(CHECK_X + 2.6,  GROUND_Y + 0.06, CHECK_Z + 0.2)
   );
   // Soft trail line along the curve
   var trailPts = beamCurve.getPoints(80);
@@ -734,10 +714,7 @@
     beamPosAttr.needsUpdate = true;
     beamMat.opacity = 0.75 + (Math.sin(t * 2.0)) * 0.15;
 
-    // Wind turbines spin
-    for (var i = 0; i < windTurbines.length; i++) {
-      windTurbines[i].rotation.z += 0.012 + i * 0.002;
-    }
+    // (no rotating elements; checkpoint scanner could pulse via emissive)
 
     if (corePulse > 0.01) corePulse *= 0.93;
     seedEdges.scale.setScalar(1 + corePulse * 0.6);
