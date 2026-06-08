@@ -218,6 +218,98 @@ ul { list-style: none; }
   position: relative;
   overflow: hidden;
 }
+
+/* Full-bleed scrolltelling variant */
+.hero.scrolltelling {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding-block: 0;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(201, 161, 74, 0.10), transparent 65%),
+    linear-gradient(180deg, #ffffff 0%, #fbf7ec 60%, #f6f0dc 100%);
+  border-bottom: 1px solid var(--gold-soft);
+}
+.hero.scrolltelling::after { content: none; }
+
+.hero.scrolltelling .hero-stage,
+.hero.scrolltelling .hero-content {
+  grid-column: 1;
+  grid-row: 1;
+}
+.hero-stage {
+  position: sticky;
+  top: 76px;
+  width: 100%;
+  height: calc(100vh - 76px);
+  align-self: start;
+  z-index: 0;
+  overflow: hidden;
+}
+.hero-stage .hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+.hero-stage .hero-canvas:active { cursor: grabbing; }
+.hero-stage .hero-hint {
+  top: 1.1rem; right: 1.4rem;
+}
+.hero-stage .hero-visual-caption {
+  left: 50%; bottom: 1.4rem;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(6px);
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--gold-soft);
+}
+.hero.scrolltelling .hero-content {
+  position: relative;
+  z-index: 1;
+  pointer-events: none; /* let drag fall through; re-enable on actionable items */
+}
+.hero.scrolltelling .hero-content .container {
+  display: flex;
+  flex-direction: column;
+}
+.hero.scrolltelling .hero-panel {
+  pointer-events: auto;
+  max-width: 580px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--gold-soft);
+  border-radius: 8px;
+  padding: clamp(1.5rem, 3vw, 2.4rem);
+  box-shadow: 0 12px 30px rgba(168, 132, 47, 0.08);
+}
+.hero.scrolltelling .hero-panel[data-panel="0"] {
+  margin-top: clamp(2rem, 6vw, 5rem);
+  margin-left: 0;
+}
+.hero.scrolltelling .hero-panel--right {
+  align-self: flex-end;
+  margin-right: 0;
+}
+.hero.scrolltelling .hero-panel[data-panel="2"] {
+  align-self: center;
+  margin-inline: auto;
+  margin-bottom: clamp(2rem, 6vw, 5rem);
+}
+.hero.scrolltelling .hero-panel + .hero-panel { border-top: 1px solid var(--gold-soft); }
+.hero.scrolltelling .hero-stats {
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--gold-soft);
+  border-radius: 8px;
+  padding: 1.5rem 1.8rem;
+  margin-top: 1.5rem;
+  margin-bottom: clamp(2rem, 5vw, 4rem);
+}
 .hero-inner {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
