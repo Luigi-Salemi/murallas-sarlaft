@@ -219,15 +219,15 @@ ul { list-style: none; }
   overflow: hidden;
 }
 
-/* Full-bleed scrolltelling variant */
+/* Full-bleed scrolltelling variant — pale blue iso aesthetic */
 .hero.scrolltelling {
   display: grid;
   grid-template-columns: 1fr;
   padding-block: 0;
   background:
-    radial-gradient(ellipse at 50% 30%, rgba(201, 161, 74, 0.10), transparent 65%),
-    linear-gradient(180deg, #ffffff 0%, #fbf7ec 60%, #f6f0dc 100%);
-  border-bottom: 1px solid var(--gold-soft);
+    radial-gradient(ellipse at 50% 30%, rgba(59, 130, 246, 0.10), transparent 65%),
+    linear-gradient(180deg, #f1f6ff 0%, #e8f0fc 50%, #f4f8ff 100%);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.18);
 }
 .hero.scrolltelling::after { content: none; }
 
