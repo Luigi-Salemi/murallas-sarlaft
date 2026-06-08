@@ -1,10 +1,11 @@
 /* ============================================================
-   Murallas · Hero 3D — Vectr-style white isometric logistics
+   Murallas · Hero 3D — Vectrfl-style isometric scene
    ------------------------------------------------------------
-   Pale blue ground, pure white buildings, blue & red curving
-   routes, white trucks, tiny human figures, blue scan beam.
-   Scroll through the panels: camera lerps between three
-   cinematic stops. Drag to rotate, click for a pulse.
+   Proper Three.js lighting (directional + ambient + hemi) with
+   shadow maps. White buildings with soft cast shadows on a pale
+   ground. One central HQ as the focal point, a clean blue scan
+   beam fanning from its entrance, a few satellite buildings,
+   curving blue & red routes, tiny human figures.
    ============================================================ */
 (function () {
   "use strict";
@@ -19,17 +20,17 @@
   var reduceMotion = window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ---------- Palette (vectrfl-style) ----------
-  var WHITE      = 0xffffff;
-  var PAPER      = 0xf8fafc;
-  var SHADE_LT   = 0xe2e8f0;
-  var SHADE_MID  = 0xcbd5e1;
-  var SHADE_DARK = 0x94a3b8;
-  var INK        = 0x1f2937;
-  var BLUE       = 0x3b82f6;
-  var BLUE_DEEP  = 0x1d4ed8;
-  var RED        = 0xef4444;
-  var RED_DEEP   = 0xb91c1c;
+  // ---------- Palette ----------
+  var WHITE       = 0xffffff;
+  var PAPER       = 0xf6f8fc;
+  var SHADE_LT    = 0xe5e9f2;
+  var SHADE_MID   = 0xb8c1d4;
+  var SHADE_DARK  = 0x7d8aa5;
+  var INK         = 0x1f2937;
+  var BLUE        = 0x3b82f6;
+  var BLUE_DEEP   = 0x1d4ed8;
+  var RED         = 0xef4444;
+  var BG_TINT     = 0xf2f6ff;
 
   var renderer;
   try {
@@ -38,20 +39,22 @@
     });
   } catch (e) { return; }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   var scene = new THREE.Scene();
 
-  // ---------- Wide isometric ortho camera ----------
-  var frustum = 5.6;
+  // ---------- Camera (isometric ortho) ----------
+  var frustum = 5.0;
   var camera = new THREE.OrthographicCamera(-frustum, frustum, frustum, -frustum, 0.1, 100);
-  camera.position.set(9, 7, 10);
-  camera.lookAt(0, -0.2, 0);
+  camera.position.set(7, 5, 8);
+  camera.lookAt(0, 0, 0);
 
-  // Camera keyframes — tighter framing so the scene fills the viewport
+  // Camera keyframes — wide → close to HQ → opposite swing
   var camStops = [
-    { pos: new THREE.Vector3( 7,    5,    8   ), look: new THREE.Vector3( 0,    0.0, 0   ), zoom: 1.35 },
-    { pos: new THREE.Vector3( 2.5,  3,    5   ), look: new THREE.Vector3( 0,    0.5, 0   ), zoom: 1.75 },
-    { pos: new THREE.Vector3(-7.5,  5,    6   ), look: new THREE.Vector3( 1.5,  0,  -1.5 ), zoom: 1.40 }
+    { pos: new THREE.Vector3( 7,    5,    8   ), look: new THREE.Vector3( 0,   0.2, 0   ), zoom: 1.30 },
+    { pos: new THREE.Vector3( 2.5,  3,    5   ), look: new THREE.Vector3( 0,   0.7, 0   ), zoom: 1.75 },
+    { pos: new THREE.Vector3(-7,    5,    6   ), look: new THREE.Vector3( 1.2, 0,  -1.0 ), zoom: 1.35 }
   ];
   var camPos = new THREE.Vector3();
   var camLook = new THREE.Vector3();
@@ -70,189 +73,194 @@
     camera.updateProjectionMatrix();
   }
 
-  // ---------- Materials ----------
-  var matBldgFace   = new THREE.MeshBasicMaterial({ color: WHITE });
-  var matBldgShade  = new THREE.MeshBasicMaterial({ color: PAPER });
-  var matBldgAccent = new THREE.MeshBasicMaterial({ color: SHADE_LT });
-  var matEdge       = new THREE.LineBasicMaterial({ color: SHADE_MID, transparent: true, opacity: 0.55 });
-  var matEdgeSoft   = new THREE.LineBasicMaterial({ color: SHADE_LT,  transparent: true, opacity: 0.4  });
-  var matGround     = new THREE.MeshBasicMaterial({ color: WHITE, transparent: true, opacity: 0.55 });
-  var matGroundLine = new THREE.LineBasicMaterial({ color: SHADE_MID, transparent: true, opacity: 0.16 });
-  var matRouteBlue  = new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0.95 });
-  var matRouteRed   = new THREE.LineBasicMaterial({ color: RED,  transparent: true, opacity: 0.95 });
-  var matRouteBlueSoft = new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0.35 });
-  var matRouteRedSoft  = new THREE.LineBasicMaterial({ color: RED,  transparent: true, opacity: 0.35 });
-  var matTruck      = new THREE.MeshBasicMaterial({ color: WHITE });
-  var matTruckCab   = new THREE.MeshBasicMaterial({ color: SHADE_MID });
-  var matCargoBlue  = new THREE.MeshBasicMaterial({ color: BLUE });
-  var matCargoRed   = new THREE.MeshBasicMaterial({ color: RED });
-  var matTree       = new THREE.MeshBasicMaterial({ color: SHADE_DARK });
-  var matFigure     = new THREE.MeshBasicMaterial({ color: SHADE_MID });
-  var matFigureHead = new THREE.MeshBasicMaterial({ color: SHADE_DARK });
-  var matCore       = new THREE.MeshBasicMaterial({ color: WHITE, transparent: true, opacity: 0.9 });
-  var matCoreEdge   = new THREE.LineBasicMaterial({ color: BLUE_DEEP, transparent: true, opacity: 1 });
+  // ============================================================
+  // LIGHTING (the key change — gives us real shadows)
+  // ============================================================
+  scene.add(new THREE.AmbientLight(0xf4f8ff, 0.55));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xc7d2fe, 0.45));
+
+  var keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+  keyLight.position.set(7, 13, -2);
+  keyLight.target.position.set(0, 0, 0);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.width = 1024;
+  keyLight.shadow.mapSize.height = 1024;
+  keyLight.shadow.camera.left = -7;
+  keyLight.shadow.camera.right = 7;
+  keyLight.shadow.camera.top = 7;
+  keyLight.shadow.camera.bottom = -7;
+  keyLight.shadow.camera.near = 0.5;
+  keyLight.shadow.camera.far = 28;
+  keyLight.shadow.bias = -0.0008;
+  keyLight.shadow.radius = 4;
+  scene.add(keyLight);
+  scene.add(keyLight.target);
+
+  // ============================================================
+  // Materials (Lambert so they receive lighting + shadows)
+  // ============================================================
+  var matWhite     = new THREE.MeshLambertMaterial({ color: WHITE });
+  var matPaper     = new THREE.MeshLambertMaterial({ color: PAPER });
+  var matShadeLt   = new THREE.MeshLambertMaterial({ color: SHADE_LT });
+  var matGround    = new THREE.MeshLambertMaterial({ color: BG_TINT });
+  var matBlue      = new THREE.MeshLambertMaterial({ color: BLUE });
+  var matBlueDeep  = new THREE.MeshLambertMaterial({ color: BLUE_DEEP });
+  var matRed       = new THREE.MeshLambertMaterial({ color: RED });
+  var matFigure    = new THREE.MeshLambertMaterial({ color: SHADE_MID });
+  var matHead      = new THREE.MeshLambertMaterial({ color: SHADE_DARK });
+  var matTree      = new THREE.MeshLambertMaterial({ color: SHADE_DARK });
+  var matCabinet   = new THREE.MeshLambertMaterial({ color: SHADE_LT });
+  // Line materials for routes (no lighting needed)
+  var matRouteBlue = new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0.95 });
+  var matRouteRed  = new THREE.LineBasicMaterial({ color: RED,  transparent: true, opacity: 0.95 });
 
   var world = new THREE.Group();
   scene.add(world);
 
   // ---------- Helpers ----------
-  function lineSeg(geo, mat) { return new THREE.LineSegments(new THREE.EdgesGeometry(geo), mat); }
-  function addBox(parent, w, h, d, x, y, z, lineMat, faceMat) {
+  function addBox(parent, w, h, d, x, y, z, mat) {
     var geo = new THREE.BoxGeometry(w, h, d);
-    var mesh = new THREE.Mesh(geo, faceMat); mesh.position.set(x, y, z);
-    var edges = lineSeg(geo, lineMat); edges.position.set(x, y, z);
-    parent.add(mesh); parent.add(edges);
-    return { mesh: mesh, edges: edges };
+    var mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(x, y, z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
   }
 
   // ============================================================
-  // Ground (white plate with very faint grid)
+  // Ground — receives shadows, has a faint grid texture via lines
   // ============================================================
   var GROUND_Y = -0.45;
   var GROUND_S = 14;
   var ground = new THREE.Mesh(new THREE.PlaneGeometry(GROUND_S, GROUND_S), matGround);
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = GROUND_Y;
+  ground.receiveShadow = true;
   world.add(ground);
 
+  // Faint grid lines (decorative, no lighting needed)
   (function () {
     var divisions = 14, half = GROUND_S / 2;
     var pts = [];
     for (var i = -divisions / 2; i <= divisions / 2; i++) {
       var x = (i / (divisions / 2)) * half;
-      pts.push(new THREE.Vector3(x, GROUND_Y + 0.002, -half));
-      pts.push(new THREE.Vector3(x, GROUND_Y + 0.002,  half));
-      pts.push(new THREE.Vector3(-half, GROUND_Y + 0.002, x));
-      pts.push(new THREE.Vector3( half, GROUND_Y + 0.002, x));
+      pts.push(new THREE.Vector3(x, GROUND_Y + 0.001, -half));
+      pts.push(new THREE.Vector3(x, GROUND_Y + 0.001,  half));
+      pts.push(new THREE.Vector3(-half, GROUND_Y + 0.001, x));
+      pts.push(new THREE.Vector3( half, GROUND_Y + 0.001, x));
     }
-    var geo = new THREE.BufferGeometry().setFromPoints(pts);
-    world.add(new THREE.LineSegments(geo, matGroundLine));
+    var lineMat = new THREE.LineBasicMaterial({ color: SHADE_MID, transparent: true, opacity: 0.18 });
+    world.add(new THREE.LineSegments(
+      new THREE.BufferGeometry().setFromPoints(pts), lineMat
+    ));
   })();
 
   // ============================================================
-  // Stepped buildings (white with subtle gray edges)
+  // CENTRAL HQ — the focal point, detailed multi-section building
   // ============================================================
-  // Reusable shadow material (translucent dark) for grounding buildings
-  var matShadow = new THREE.MeshBasicMaterial({
-    color: 0x0a0a0a, transparent: true, opacity: 0.10, depthWrite: false
-  });
+  var hqGroup = new THREE.Group();
+  world.add(hqGroup);
+  // Base
+  addBox(hqGroup, 1.8, 0.55, 1.8, 0, GROUND_Y + 0.275, 0, matWhite);
+  // Mid section
+  addBox(hqGroup, 1.4, 0.50, 1.4, 0, GROUND_Y + 0.80, 0, matPaper);
+  // Upper section
+  addBox(hqGroup, 0.9, 0.45, 0.9, 0, GROUND_Y + 1.275, 0, matWhite);
+  // Roof platform
+  addBox(hqGroup, 0.7, 0.07, 0.7, 0, GROUND_Y + 1.535, 0, matShadeLt);
+  // Rooftop unit (HVAC/control box)
+  addBox(hqGroup, 0.35, 0.18, 0.35, 0, GROUND_Y + 1.66, 0, matShadeLt);
+  // Antenna / spire
+  var spireGeo = new THREE.CylinderGeometry(0.015, 0.025, 0.55, 6);
+  var spire = new THREE.Mesh(spireGeo, matFigure);
+  spire.position.set(0, GROUND_Y + 2.0, 0);
+  spire.castShadow = true;
+  hqGroup.add(spire);
+  // Spire ball top
+  var spireBall = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), matBlueDeep);
+  spireBall.position.set(0, GROUND_Y + 2.30, 0);
+  hqGroup.add(spireBall);
 
-  function addBuildingShadow(parent, x, z, w, d, scale) {
-    var s = scale || 1.45;
-    var shadowGeo = new THREE.PlaneGeometry(w * s, d * s);
-    var shadow = new THREE.Mesh(shadowGeo, matShadow);
-    shadow.rotation.x = -Math.PI / 2;
-    // Offset slightly south-east so it reads as cast shadow
-    shadow.position.set(x + 0.18, GROUND_Y + 0.006, z + 0.18);
-    parent.add(shadow);
+  // Blue entrance door on east face of base
+  var doorGeo = new THREE.BoxGeometry(0.04, 0.30, 0.30);
+  var door = new THREE.Mesh(doorGeo, matBlue);
+  door.position.set(0.92, GROUND_Y + 0.20, 0);
+  hqGroup.add(door);
+
+  // Window stripes on mid-section (4 sides — just front for simplicity)
+  for (var i = 0; i < 3; i++) {
+    var yWin = GROUND_Y + 0.55 + i * 0.14;
+    var stripeGeo = new THREE.BoxGeometry(1.42, 0.04, 1.42);
+    var stripe = new THREE.Mesh(stripeGeo, matShadeLt);
+    stripe.position.set(0, yWin, 0);
+    hqGroup.add(stripe);
+  }
+  // Window stripes on base
+  for (var i = 0; i < 2; i++) {
+    var yWin = GROUND_Y + 0.18 + i * 0.18;
+    var stripeGeo = new THREE.BoxGeometry(1.82, 0.04, 1.82);
+    var stripe = new THREE.Mesh(stripeGeo, matShadeLt);
+    stripe.position.set(0, yWin, 0);
+    hqGroup.add(stripe);
   }
 
-  // Add horizontal window stripes on a building face
-  function addWindows(parent, x, z, w, h, d, count) {
-    var rows = count || 3;
-    for (var i = 0; i < rows; i++) {
-      var yy = GROUND_Y + 0.05 + (i + 0.5) * (h / (rows + 0.5));
-      var stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(w + 0.008, 0.02, d + 0.008),
-        new THREE.MeshBasicMaterial({ color: SHADE_LT })
-      );
-      stripe.position.set(x, yy, z);
-      parent.add(stripe);
-    }
-  }
+  var hqTop = GROUND_Y + 1.66;
 
-  function makeBuilding(x, z, segments, withCap, accentColor) {
-    var grp = new THREE.Group();
-    var y = GROUND_Y + 0.005;
-    var lastW = 0, lastD = 0;
-    // Ground shadow under the building footprint
-    var fp = segments[0];
-    addBuildingShadow(grp, x, z, fp.w, fp.d, 1.5);
-    for (var i = 0; i < segments.length; i++) {
-      var s = segments[i];
-      var face = i % 2 === 0 ? matBldgFace : matBldgShade;
-      addBox(grp, s.w, s.h, s.d, x, y + s.h / 2, z, matEdge, face);
-      // Window stripes on the base segment
-      if (i === 0 && s.h > 0.4) addWindows(grp, x, z, s.w, s.h, s.d, 3);
-      y += s.h;
-      lastW = s.w; lastD = s.d;
-    }
-    if (withCap) {
-      addBox(grp, lastW * 0.5, 0.14, lastD * 0.5, x, y + 0.07, z, matEdge, matBldgAccent);
-      y += 0.14;
-    }
-    // Optional accent color stripe on side of building (entrance marker)
-    if (accentColor) {
-      var stripeGeo = new THREE.BoxGeometry(0.04, 0.20, lastD * 0.55);
-      var stripe = new THREE.Mesh(stripeGeo, new THREE.MeshBasicMaterial({ color: accentColor }));
-      stripe.position.set(x + lastW / 2 + 0.025, GROUND_Y + 0.12, z);
-      grp.add(stripe);
-    }
-    world.add(grp);
-    return { x: x, z: z, top: y };
-  }
-
-  // Central main facility — compliance HQ (with blue accent entrance)
-  var hq = makeBuilding(0, 0, [
-    { w: 1.7, h: 0.55, d: 1.7 },
-    { w: 1.3, h: 0.50, d: 1.3 },
-    { w: 0.85, h: 0.40, d: 0.85 }
-  ], true, BLUE);
-
-  // NE warehouse (long roof with ribs)
-  makeBuilding(3.4, -2.8, [
-    { w: 1.7, h: 0.75, d: 2.1 }
-  ], true);
+  // ============================================================
+  // Satellite buildings (kept simple, not competing for attention)
+  // ============================================================
+  // NE warehouse — long flat roof with ribs
+  var warehouse = new THREE.Group();
+  world.add(warehouse);
+  addBox(warehouse, 1.5, 0.65, 2.0, 3.2, GROUND_Y + 0.325, -2.6, matWhite);
+  // Roof ribs (visible from above)
   for (var i = 0; i < 6; i++) {
-    addBox(world, 1.8, 0.04, 0.18, 3.4, GROUND_Y + 0.79, -2.8 + (i - 2.5) * 0.36, matEdge, matBldgAccent);
+    var rib = addBox(warehouse, 1.55, 0.04, 0.16,
+      3.2, GROUND_Y + 0.67, -2.6 + (i - 2.5) * 0.36, matShadeLt);
   }
 
-  // NW customs / checkpoint
-  makeBuilding(-3.4, -2.5, [
-    { w: 1.2, h: 0.55, d: 1.2 },
-    { w: 0.85, h: 0.35, d: 0.85 }
-  ], true, RED);
+  // NW customs / checkpoint — small stepped with red stripe
+  var customs = new THREE.Group();
+  world.add(customs);
+  addBox(customs, 1.1, 0.55, 1.1, -3.2, GROUND_Y + 0.275, -2.0, matWhite);
+  addBox(customs, 0.8, 0.30, 0.8, -3.2, GROUND_Y + 0.70, -2.0, matPaper);
+  // Red accent on east side
+  var redStripe = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.20, 0.55), matRed);
+  redStripe.position.set(-3.2 + 0.55 + 0.025, GROUND_Y + 0.15, -2.0);
+  customs.add(redStripe);
 
-  // SE distribution center (wider, flagged red)
-  makeBuilding(3.2, 2.8, [
-    { w: 2.1, h: 0.45, d: 1.4 },
-    { w: 1.5, h: 0.30, d: 0.95 }
-  ], true);
+  // SE storage hub — small wide platform
+  var storage = new THREE.Group();
+  world.add(storage);
+  addBox(storage, 1.6, 0.35, 1.0, 2.8, GROUND_Y + 0.175, 2.8, matWhite);
+  addBox(storage, 0.5, 0.25, 0.5, 2.8, GROUND_Y + 0.475, 2.8, matPaper);
 
-  // SW depot
-  makeBuilding(-3.2, 2.7, [
-    { w: 1.9, h: 0.42, d: 1.5 }
-  ], true);
-
-  var BLDGS = {
-    hq: new THREE.Vector3( 0,    GROUND_Y + 0.05,  0   ),
-    ne: new THREE.Vector3( 3.4,  GROUND_Y + 0.05, -2.8 ),
-    nw: new THREE.Vector3(-3.4,  GROUND_Y + 0.05, -2.5 ),
-    se: new THREE.Vector3( 3.2,  GROUND_Y + 0.05,  2.8 ),
-    sw: new THREE.Vector3(-3.2,  GROUND_Y + 0.05,  2.7 )
-  };
+  // SW small depot
+  var depot = new THREE.Group();
+  world.add(depot);
+  addBox(depot, 1.4, 0.42, 1.4, -2.8, GROUND_Y + 0.21, 2.6, matWhite);
 
   // ============================================================
-  // Container stacks (white & gray cargo yards)
+  // Container stacks (2 yards — modest, vectrfl-style)
   // ============================================================
   function makeContainerStack(cx, cz, rows, cols, layers) {
-    var w = 0.40, h = 0.16, d = 0.20, gap = 0.03;
+    var w = 0.38, h = 0.16, d = 0.20, gap = 0.025;
     for (var l = 0; l < layers; l++) {
       for (var r = 0; r < rows; r++) {
         for (var c = 0; c < cols; c++) {
-          if (l > 0 && Math.random() > 0.7) continue;
+          if (l > 0 && Math.random() > 0.65) continue;
           var x = cx + (c - (cols - 1) / 2) * (w + gap);
           var z = cz + (r - (rows - 1) / 2) * (d + gap);
           var y = GROUND_Y + 0.005 + h / 2 + l * (h + 0.005);
-          var face = l === 0 ? matBldgFace : matBldgAccent;
-          addBox(world, w, h, d, x, y, z, matEdge, face);
+          var mat = l === 0 ? matWhite : matShadeLt;
+          addBox(world, w, h, d, x, y, z, mat);
         }
       }
     }
   }
-  makeContainerStack(-5.2, -0.3, 3, 4, 2);
-  makeContainerStack( 5.4,  4.4, 2, 3, 2);
-  makeContainerStack(-1.0, -5.0, 2, 5, 1);
+  makeContainerStack(-5.0, 0.5, 2, 3, 2);
+  makeContainerStack( 0.0, 5.0, 2, 4, 2);
 
   // ============================================================
   // Tiny human figures (sphere head + cylinder body)
@@ -260,35 +268,41 @@
   function makeFigure(x, z) {
     var grp = new THREE.Group();
     var body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.055, 0.055, 0.18, 6),
-      matFigure
+      new THREE.CylinderGeometry(0.055, 0.055, 0.18, 6), matFigure
     );
     body.position.y = GROUND_Y + 0.10;
-    var head = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), matFigureHead);
+    body.castShadow = true;
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), matHead);
     head.position.y = GROUND_Y + 0.24;
+    head.castShadow = true;
     grp.add(body); grp.add(head);
     grp.position.set(x, 0, z);
     world.add(grp);
     return grp;
   }
-  var figures = [
-    makeFigure(-1.5, 1.5),
-    makeFigure( 1.6, -1.3),
-    makeFigure( 2.2,  2.2),
-    makeFigure(-2.0, -1.5),
-    makeFigure(-4.0,  1.3),
-    makeFigure( 4.2,  0.5),
-    makeFigure( 0.0,  3.5)
-  ];
+  makeFigure(-1.3, 1.5);
+  makeFigure( 1.5, -1.2);
+  makeFigure( 2.0,  2.0);
+  makeFigure(-1.8, -1.5);
+  makeFigure( 4.0,  0.3);
+  makeFigure(-3.5,  1.0);
 
   // ============================================================
-  // Curving bezier routes — blue (regular monitoring) + red (flagged)
+  // Bezier routes (blue + red)
   // ============================================================
   var routes = [];
+  var BLDGS = {
+    hq:       new THREE.Vector3( 0,    GROUND_Y + 0.04,  0   ),
+    warehouse:new THREE.Vector3( 3.2,  GROUND_Y + 0.04, -2.6 ),
+    customs:  new THREE.Vector3(-3.2,  GROUND_Y + 0.04, -2.0 ),
+    storage:  new THREE.Vector3( 2.8,  GROUND_Y + 0.04,  2.8 ),
+    depot:    new THREE.Vector3(-2.8,  GROUND_Y + 0.04,  2.6 )
+  };
+
   function makeRoute(from, to, curvature, color) {
     var c = (typeof curvature === "number") ? curvature : 0.32;
-    var p0 = from.clone(); p0.y = GROUND_Y + 0.03;
-    var p2 = to.clone();   p2.y = GROUND_Y + 0.03;
+    var p0 = from.clone(); p0.y = GROUND_Y + 0.025;
+    var p2 = to.clone();   p2.y = GROUND_Y + 0.025;
     var mid = p0.clone().lerp(p2, 0.5);
     var dir = p2.clone().sub(p0);
     var perp = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
@@ -296,54 +310,50 @@
     var curve = new THREE.QuadraticBezierCurve3(p0, p1, p2);
     var pts = curve.getPoints(80);
     var geo = new THREE.BufferGeometry().setFromPoints(pts);
-    var mainMat  = color === "red" ? matRouteRed : matRouteBlue;
-    var softMat  = color === "red" ? matRouteRedSoft : matRouteBlueSoft;
+    var mainMat = color === "red" ? matRouteRed : matRouteBlue;
     world.add(new THREE.Line(geo, mainMat));
-    // Soft underlay (halo)
-    var underGeo = new THREE.BufferGeometry().setFromPoints(pts);
-    world.add(new THREE.Line(underGeo, softMat));
-    routes.push({ curve: curve, color: color, len: dir.length() });
+    routes.push({ curve: curve, color: color });
   }
-
-  // Mix of blue and red routes (red = "flagged for audit" routes)
-  makeRoute(BLDGS.hq, BLDGS.ne,  0.30, "blue");
-  makeRoute(BLDGS.hq, BLDGS.nw, -0.30, "red");
-  makeRoute(BLDGS.hq, BLDGS.se, -0.28, "blue");
-  makeRoute(BLDGS.hq, BLDGS.sw,  0.28, "blue");
-  makeRoute(BLDGS.ne, BLDGS.se,  0.45, "red");
-  makeRoute(BLDGS.sw, BLDGS.nw,  0.45, "blue");
-  makeRoute(BLDGS.nw, BLDGS.ne,  0.18, "blue");
+  makeRoute(BLDGS.hq, BLDGS.warehouse,  0.32, "blue");
+  makeRoute(BLDGS.hq, BLDGS.customs,   -0.32, "red");
+  makeRoute(BLDGS.hq, BLDGS.storage,   -0.28, "blue");
+  makeRoute(BLDGS.hq, BLDGS.depot,      0.28, "blue");
+  makeRoute(BLDGS.warehouse, BLDGS.storage,  0.45, "red");
+  makeRoute(BLDGS.depot, BLDGS.customs,      0.40, "blue");
 
   // ============================================================
-  // Trucks following the routes — white with subtle accents
+  // Trucks following the curves
   // ============================================================
   function makeTruck(accent) {
     var truck = new THREE.Group();
     var cargoGeo = new THREE.BoxGeometry(0.30, 0.24, 0.42);
-    var cargoMat = accent === "red" ? matCargoRed : (accent === "blue" ? matCargoBlue : matTruck);
-    var cargo = new THREE.Mesh(cargoGeo, cargoMat);
-    var cargoE = lineSeg(cargoGeo, matEdge);
+    var cargo = new THREE.Mesh(cargoGeo, accent === "red" ? matRed : matWhite);
     cargo.position.set(0, 0.13, -0.10);
-    cargoE.position.set(0, 0.13, -0.10);
-    truck.add(cargo); truck.add(cargoE);
+    cargo.castShadow = true;
+    truck.add(cargo);
     var cabGeo = new THREE.BoxGeometry(0.28, 0.18, 0.20);
-    var cab = new THREE.Mesh(cabGeo, matTruckCab);
-    var cabE = lineSeg(cabGeo, matEdge);
+    var cab = new THREE.Mesh(cabGeo, matCabinet);
     cab.position.set(0, 0.10, 0.22);
-    cabE.position.set(0, 0.10, 0.22);
-    truck.add(cab); truck.add(cabE);
+    cab.castShadow = true;
+    truck.add(cab);
+    // Headlight (small bright box)
+    var hl = new THREE.Mesh(
+      new THREE.BoxGeometry(0.10, 0.06, 0.04),
+      new THREE.MeshLambertMaterial({ color: WHITE, emissive: 0xfff5d6 })
+    );
+    hl.position.set(0, 0.10, 0.34);
+    truck.add(hl);
     return truck;
   }
   var trucks = [];
-  var TRUCK_COUNT = 9;
+  var TRUCK_COUNT = 8;
   for (var i = 0; i < TRUCK_COUNT; i++) {
     var routeForTruck = routes[i % routes.length];
-    var accent = routeForTruck.color === "red" ? "red" :
-                 (i % 4 === 0 ? "blue" : null);
-    var t = makeTruck(accent);
-    world.add(t);
+    var accent = routeForTruck.color === "red" ? "red" : null;
+    var tk = makeTruck(accent);
+    world.add(tk);
     trucks.push({
-      mesh: t,
+      mesh: tk,
       routeIdx: i % routes.length,
       offset: Math.random(),
       direction: Math.random() > 0.5 ? 1 : -1,
@@ -352,95 +362,71 @@
   }
 
   // ============================================================
-  // Central compliance core (floats above HQ, blue accent)
+  // Compliance core (floats above HQ) + scan beam
   // ============================================================
-  var coreBaseY = hq.top + 1.0;
-  var coreGeo = new THREE.IcosahedronGeometry(0.32, 0);
-  var coreFaces = new THREE.Mesh(coreGeo, matCore);
-  var coreEdges = lineSeg(coreGeo, matCoreEdge);
+  var coreBaseY = hqTop + 0.85;
+  var coreFaces = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.30, 0),
+    new THREE.MeshLambertMaterial({ color: WHITE, emissive: 0x99c6ff, emissiveIntensity: 0.15 })
+  );
+  var coreEdges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(0.30, 0)),
+    new THREE.LineBasicMaterial({ color: BLUE_DEEP, transparent: true, opacity: 1 })
+  );
   coreFaces.position.y = coreBaseY;
   coreEdges.position.y = coreBaseY;
   world.add(coreFaces); world.add(coreEdges);
-  world.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, hq.top, 0),
-      new THREE.Vector3(0, coreBaseY - 0.28, 0)
-    ]),
-    new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0.5 })
-  ));
-  var seedGeo = new THREE.OctahedronGeometry(0.11, 0);
-  var seedEdges = lineSeg(seedGeo, new THREE.LineBasicMaterial({
-    color: RED, transparent: true, opacity: 1
-  }));
+
+  var seedEdges = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.OctahedronGeometry(0.11, 0)),
+    new THREE.LineBasicMaterial({ color: RED, transparent: true, opacity: 1 })
+  );
   seedEdges.position.y = coreBaseY;
   world.add(seedEdges);
 
-  // ============================================================
-  // Scan beam — blue dots fanning from HQ entrance
-  // ============================================================
-  var beamCount = 220;
+  // Scan beam — blue dots fanning east from HQ entrance
+  var beamCount = 280;
   var beamGeo = new THREE.BufferGeometry();
   var beamPos = new Float32Array(beamCount * 3);
-  var beamMeta = []; // store original radial info for animation
-  var beamOrigin = new THREE.Vector3(0.95, GROUND_Y + 0.02, 0); // east side of HQ
-  var BEAM_LENGTH = 3.0;
-  var BEAM_SPREAD = Math.PI / 3.5;
+  var beamMeta = [];
+  var beamOrigin = new THREE.Vector3(0.98, GROUND_Y + 0.05, 0);
+  var BEAM_LENGTH = 3.5;
+  var BEAM_SPREAD = Math.PI / 3.2;
   for (var i = 0; i < beamCount; i++) {
-    var rNorm = Math.pow(Math.random(), 0.55); // bias points toward farther distances
+    var rNorm = Math.pow(Math.random(), 0.6);
     var ang = (Math.random() - 0.5) * BEAM_SPREAD;
     var r = rNorm * BEAM_LENGTH;
     beamPos[i * 3]     = beamOrigin.x + Math.cos(ang) * r;
     beamPos[i * 3 + 1] = beamOrigin.y;
     beamPos[i * 3 + 2] = beamOrigin.z + Math.sin(ang) * r;
-    beamMeta.push({ r: r, ang: ang, baseR: rNorm });
+    beamMeta.push({ ang: ang, baseR: rNorm });
   }
   beamGeo.setAttribute("position", new THREE.BufferAttribute(beamPos, 3));
   var beamMat = new THREE.PointsMaterial({
-    color: BLUE, size: 0.05, transparent: true, opacity: 0.85, sizeAttenuation: true
+    color: BLUE, size: 0.055, transparent: true, opacity: 0.85, sizeAttenuation: true
   });
   var beam = new THREE.Points(beamGeo, beamMat);
   world.add(beam);
 
   // ============================================================
-  // Scenery cones (trees) on the outskirts — gray
+  // Scenery cones (trees) — small gray cones at the edges
   // ============================================================
   (function () {
-    var count = 26;
+    var count = 18;
     for (var i = 0; i < count; i++) {
       var angle = (i / count) * Math.PI * 2 + Math.random() * 0.4;
       var r = 5.8 + Math.random() * 0.8;
       var x = Math.cos(angle) * r, z = Math.sin(angle) * r;
-      var scale = 0.55 + Math.random() * 0.6;
-      var coneGeo = new THREE.ConeGeometry(0.13 * scale, 0.38 * scale, 5);
-      var cone = new THREE.Mesh(coneGeo, matTree);
-      var coneE = lineSeg(coneGeo, matEdgeSoft);
-      var cy = GROUND_Y + 0.19 * scale;
-      cone.position.set(x, cy, z);
-      coneE.position.set(x, cy, z);
-      world.add(cone); world.add(coneE);
+      var scale = 0.55 + Math.random() * 0.5;
+      var cone = new THREE.Mesh(
+        new THREE.ConeGeometry(0.13 * scale, 0.36 * scale, 5),
+        matTree
+      );
+      cone.position.set(x, GROUND_Y + 0.18 * scale, z);
+      cone.castShadow = true;
+      world.add(cone);
     }
   })();
-
-  // ============================================================
-  // Ambient blue particles
-  // ============================================================
-  var particleCount = 90;
-  var particleGeo = new THREE.BufferGeometry();
-  var particlePos = new Float32Array(particleCount * 3);
-  for (var i = 0; i < particleCount; i++) {
-    var rr = 4.5 + Math.random() * 3.0;
-    var theta = Math.random() * Math.PI * 2;
-    var phi = Math.acos(2 * Math.random() - 1);
-    particlePos[i * 3]     = rr * Math.sin(phi) * Math.cos(theta);
-    particlePos[i * 3 + 1] = rr * Math.cos(phi);
-    particlePos[i * 3 + 2] = rr * Math.sin(phi) * Math.sin(theta);
-  }
-  particleGeo.setAttribute("position", new THREE.BufferAttribute(particlePos, 3));
-  var particleMat = new THREE.PointsMaterial({
-    color: BLUE, size: 0.045, transparent: true, opacity: 0.55, sizeAttenuation: true
-  });
-  var particles = new THREE.Points(particleGeo, particleMat);
-  scene.add(particles);
 
   // ============================================================
   // Resize
@@ -485,11 +471,8 @@
   var velY = 0, velX = 0;
   var isDragging = false, dragMoved = false;
   var lastX = 0, lastY = 0;
-  var pulse = 1;
-  var hover = false;
-  var idleFrames = 0;
-  var IDLE_THRESHOLD = 120;
-  var corePulse = 0;
+  var pulse = 1, hover = false, idleFrames = 0;
+  var IDLE_THRESHOLD = 120, corePulse = 0;
 
   function ptr(e) {
     if (e.touches && e.touches[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -508,7 +491,7 @@
     if (Math.abs(dx) + Math.abs(dy) > 2) dragMoved = true;
     velY = dx * 0.005; velX = dy * 0.004;
     rotY += velY; rotX += velX;
-    rotX = Math.max(-0.4, Math.min(0.4, rotX));
+    rotX = Math.max(-0.35, Math.min(0.35, rotX));
     lastX = p.x; lastY = p.y;
     idleFrames = 0;
   }
@@ -519,7 +502,6 @@
   }
   function onEnter() { hover = true; idleFrames = 0; }
   function onLeave() { hover = false; }
-
   canvas.addEventListener("pointerdown", onDown);
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
@@ -530,8 +512,7 @@
   // ============================================================
   // Animation loop
   // ============================================================
-  var t = 0;
-  var smoothedProgress = 0;
+  var t = 0, smoothedProgress = 0;
   var tangentTmp = new THREE.Vector3();
   var posTmp = new THREE.Vector3();
 
@@ -544,7 +525,7 @@
       velY *= 0.94; velX *= 0.94;
       rotX *= 0.97;
       idleFrames++;
-      if (idleFrames > IDLE_THRESHOLD && !reduceMotion) rotY += 0.001;
+      if (idleFrames > IDLE_THRESHOLD && !reduceMotion) rotY += 0.0008;
     }
 
     pulse += (1 - pulse) * 0.09;
@@ -554,10 +535,8 @@
 
     smoothedProgress += (scrollProgress - smoothedProgress) * 0.10;
     if (!reduceMotion) smoothedProgress += 0.00015;
-
     updateCameraFromScroll(scrollProgress);
 
-    // Core spin
     var floatY = coreBaseY + Math.sin(t * 2.5) * 0.05;
     coreFaces.position.y = floatY;
     coreEdges.position.y = floatY;
@@ -567,7 +546,6 @@
     seedEdges.rotation.y =  t * 1.4;
     seedEdges.rotation.x =  t * 0.8;
 
-    // Trucks
     var globalT = smoothedProgress * 4.5;
     for (var i = 0; i < trucks.length; i++) {
       var tk = trucks[i];
@@ -577,7 +555,7 @@
       var route = routes[tk.routeIdx];
       route.curve.getPointAt(u, posTmp);
       route.curve.getTangentAt(u, tangentTmp).normalize();
-      tk.mesh.position.set(posTmp.x, posTmp.y + 0.04, posTmp.z);
+      tk.mesh.position.set(posTmp.x, posTmp.y + 0.02, posTmp.z);
       tk.mesh.rotation.y = Math.atan2(
         tangentTmp.x * tk.direction,
         tangentTmp.z * tk.direction
@@ -590,9 +568,9 @@
       }
     }
 
-    // Scan beam pulse — dots breathe outward and fade with distance
+    // Scan beam pulse
     var beamPosAttr = beam.geometry.attributes.position;
-    var beamPulse = (Math.sin(t * 1.5) + 1) * 0.5; // 0..1 breathing
+    var beamPulse = (Math.sin(t * 1.5) + 1) * 0.5;
     for (var i = 0; i < beamCount; i++) {
       var m = beamMeta[i];
       var driftR = m.baseR * (0.8 + beamPulse * 0.25);
@@ -601,21 +579,14 @@
       beamPosAttr.array[i * 3 + 2] = beamOrigin.z + Math.sin(m.ang) * rr;
     }
     beamPosAttr.needsUpdate = true;
-    beamMat.opacity = 0.5 + beamPulse * 0.35;
+    beamMat.opacity = 0.55 + beamPulse * 0.35;
 
     if (corePulse > 0.01) corePulse *= 0.93;
     seedEdges.scale.setScalar(1 + corePulse * 0.6);
 
-    // Hover glow
     var tg = hover ? 1.0 : 0.95;
-    var ts = hover ? 0.6 : 0.4;
-    var tp = hover ? 0.8 : 0.55;
     matRouteBlue.opacity += (tg - matRouteBlue.opacity) * 0.08;
     matRouteRed.opacity  += (tg - matRouteRed.opacity)  * 0.08;
-    matEdgeSoft.opacity  += (ts - matEdgeSoft.opacity)  * 0.08;
-    particleMat.opacity  += (tp - particleMat.opacity)  * 0.08;
-
-    particles.rotation.y = -t * 0.18;
 
     renderer.render(scene, camera);
   }
