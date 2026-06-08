@@ -275,40 +275,77 @@ ul { list-style: none; }
 .hero.scrolltelling .hero-content .container {
   display: flex;
   flex-direction: column;
+  min-height: 250vh; /* total scroll height for 3 panels */
+}
+.hero.scrolltelling .hero-title {
+  font-size: clamp(1.7rem, 3.4vw, 2.8rem);
+  line-height: 1.08;
+}
+.hero.scrolltelling .hero-panel-title {
+  font-size: clamp(1.5rem, 2.8vw, 2.2rem);
+}
+.hero.scrolltelling .hero-lead,
+.hero.scrolltelling .hero-panel-lead {
+  font-size: clamp(0.95rem, 1.05vw, 1.05rem);
 }
 .hero.scrolltelling .hero-panel {
   pointer-events: auto;
-  max-width: 580px;
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--gold-soft);
-  border-radius: 8px;
-  padding: clamp(1.5rem, 3vw, 2.4rem);
-  box-shadow: 0 12px 30px rgba(168, 132, 47, 0.08);
+  min-height: 0;
+  max-width: 440px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(201, 161, 74, 0.35);
+  border-radius: 10px;
+  padding: clamp(1.2rem, 2vw, 1.6rem) clamp(1.4rem, 2.2vw, 1.8rem);
+  box-shadow: 0 8px 24px rgba(168, 132, 47, 0.08);
 }
+.hero.scrolltelling .hero-panel + .hero-panel { border-top: 1px solid rgba(201, 161, 74, 0.35); }
+
+/* Position each panel in a different corner so the scene breathes */
 .hero.scrolltelling .hero-panel[data-panel="0"] {
-  margin-top: clamp(2rem, 6vw, 5rem);
+  align-self: flex-start;
+  margin-top: clamp(6vh, 10vh, 12vh);
+  margin-bottom: 75vh; /* push next panel a viewport down */
   margin-left: 0;
+  max-width: 460px;
 }
 .hero.scrolltelling .hero-panel--right {
   align-self: flex-end;
   margin-right: 0;
+  margin-bottom: 75vh;
+  max-width: 380px;
+  text-align: right;
 }
+.hero.scrolltelling .hero-panel--right .hero-panel-title::before { margin-left: auto; }
+.hero.scrolltelling .hero-panel--right .btn { align-self: flex-end; }
 .hero.scrolltelling .hero-panel[data-panel="2"] {
-  align-self: center;
-  margin-inline: auto;
-  margin-bottom: clamp(2rem, 6vw, 5rem);
+  align-self: flex-start;
+  margin-bottom: 12vh;
+  max-width: 460px;
 }
-.hero.scrolltelling .hero-panel + .hero-panel { border-top: 1px solid var(--gold-soft); }
+.hero.scrolltelling .hero-panel .hero-actions { flex-wrap: wrap; }
+.hero.scrolltelling .hero-panel .btn {
+  padding: 0.7rem 1.2rem;
+  font-size: 0.88rem;
+}
+.hero.scrolltelling .scroll-cue { margin-top: 1.5rem; }
 .hero.scrolltelling .hero-stats {
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--gold-soft);
-  border-radius: 8px;
-  padding: 1.5rem 1.8rem;
-  margin-top: 1.5rem;
+  align-self: center;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(201, 161, 74, 0.35);
+  border-radius: 10px;
+  padding: 1.2rem 1.5rem;
+  margin-top: 0;
   margin-bottom: clamp(2rem, 5vw, 4rem);
+  max-width: 880px;
+  width: 100%;
 }
 .hero-inner {
   display: grid;

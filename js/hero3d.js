@@ -38,16 +38,40 @@
   // ---------- Wide isometric ortho camera ----------
   var frustum = 5.6;
   var camera = new THREE.OrthographicCamera(-frustum, frustum, frustum, -frustum, 0.1, 100);
-  camera.position.set(8, 6.5, 9);
+  camera.position.set(9, 7, 10);
   camera.lookAt(0, -0.2, 0);
 
+  // Camera keyframes (interpolated by scroll progress)
+  var camStops = [
+    { pos: new THREE.Vector3( 9,   7,    10  ), look: new THREE.Vector3(0,    -0.2, 0   ), zoom: 1.00 },
+    { pos: new THREE.Vector3( 5,   4.5,  7   ), look: new THREE.Vector3(0,     0.5, 0   ), zoom: 1.35 },
+    { pos: new THREE.Vector3(-7.5, 5.5,  9   ), look: new THREE.Vector3(1.2,   0,  -1.0 ), zoom: 1.05 }
+  ];
+  var camPos = new THREE.Vector3();
+  var camLook = new THREE.Vector3();
+  function easeInOut(t) { return t * t * (3 - 2 * t); }
+  function updateCameraFromScroll(p) {
+    var n = camStops.length - 1;
+    var scaled = Math.min(n, Math.max(0, p * n));
+    var idx = Math.min(n - 1, Math.floor(scaled));
+    var frac = easeInOut(scaled - idx);
+    var a = camStops[idx], b = camStops[idx + 1];
+    camPos.lerpVectors(a.pos, b.pos, frac);
+    camLook.lerpVectors(a.look, b.look, frac);
+    var z = a.zoom + (b.zoom - a.zoom) * frac;
+    camera.position.copy(camPos);
+    camera.lookAt(camLook);
+    camera.zoom = z;
+    camera.updateProjectionMatrix();
+  }
+
   // ---------- Materials ----------
-  var lineGold      = new THREE.LineBasicMaterial({ color: GOLD,      transparent: true, opacity: 0.95 });
-  var lineGoldSoft  = new THREE.LineBasicMaterial({ color: GOLD_SOFT, transparent: true, opacity: 0.55 });
-  var lineInk       = new THREE.LineBasicMaterial({ color: INK,       transparent: true, opacity: 0.75 });
-  var faceGround    = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.04 });
-  var faceBldg      = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.10 });
-  var faceBldgDark  = new THREE.MeshBasicMaterial({ color: INK,       transparent: true, opacity: 0.18 });
+  var lineGold      = new THREE.LineBasicMaterial({ color: GOLD,      transparent: true, opacity: 0.85 });
+  var lineGoldSoft  = new THREE.LineBasicMaterial({ color: GOLD_SOFT, transparent: true, opacity: 0.45 });
+  var lineInk       = new THREE.LineBasicMaterial({ color: INK,       transparent: true, opacity: 0.55 });
+  var faceGround    = new THREE.MeshBasicMaterial({ color: 0xffffff,  transparent: true, opacity: 0.55 });
+  var faceBldg      = new THREE.MeshBasicMaterial({ color: 0xffffff,  transparent: true, opacity: 0.78 });
+  var faceBldgDark  = new THREE.MeshBasicMaterial({ color: 0xf5edd8,  transparent: true, opacity: 0.85 });
   var faceCargo     = new THREE.MeshBasicMaterial({ color: GOLD });
   var faceCargoSoft = new THREE.MeshBasicMaterial({ color: GOLD_SOFT });
   var faceLoco      = new THREE.MeshBasicMaterial({ color: GOLD_DEEP });
@@ -438,6 +462,11 @@
     smoothedProgress += (scrollProgress - smoothedProgress) * 0.10;
     // Tiny idle drift so trucks never look frozen
     if (!reduceMotion) smoothedProgress += 0.00015;
+
+    // Scroll-driven camera choreography (wide → zoom → opposite angle)
+    var camProg = Math.max(0, Math.min(1, scrollProgress));
+    // Apply slight smoothing to camera too
+    updateCameraFromScroll(camProg);
 
     // Compliance core float + spin
     var floatY = coreBaseY + Math.sin(t * 2.5) * 0.05;
