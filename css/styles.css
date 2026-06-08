@@ -352,13 +352,15 @@ ul { list-style: none; }
    Vectr palette overrides — scoped strictly to the scrolltelling
    hero zone. The rest of the site keeps the gold brand theme.
    ============================================================ */
-.hero.scrolltelling .eyebrow { color: #1e40af; }
+.hero.scrolltelling .eyebrow { color: #1e40af !important; }
 .hero.scrolltelling .serif-italic {
-  background: linear-gradient(90deg, #1d4ed8, #3b82f6);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background: linear-gradient(90deg, #1d4ed8, #3b82f6) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
 }
+.hero.scrolltelling .scroll-cue { color: #1e40af !important; }
+.hero.scrolltelling .scroll-cue-line { background: #3b82f6 !important; }
 .hero.scrolltelling .hero-title::before,
 .hero.scrolltelling .hero-panel-title::before {
   background: #3b82f6;

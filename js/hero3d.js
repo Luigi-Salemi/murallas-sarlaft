@@ -47,11 +47,11 @@
   camera.position.set(9, 7, 10);
   camera.lookAt(0, -0.2, 0);
 
-  // Camera keyframes (more dramatic — wide, close-up, opposite swing)
+  // Camera keyframes — tighter framing so the scene fills the viewport
   var camStops = [
-    { pos: new THREE.Vector3( 9,    7,    10  ), look: new THREE.Vector3( 0,   -0.2, 0   ), zoom: 1.00 },
-    { pos: new THREE.Vector3( 3,    3.5,  6   ), look: new THREE.Vector3( 0,    0.6, 0   ), zoom: 1.55 },
-    { pos: new THREE.Vector3(-9,    6,    7   ), look: new THREE.Vector3( 1.5,  0,  -1.5 ), zoom: 1.10 }
+    { pos: new THREE.Vector3( 7,    5,    8   ), look: new THREE.Vector3( 0,    0.0, 0   ), zoom: 1.35 },
+    { pos: new THREE.Vector3( 2.5,  3,    5   ), look: new THREE.Vector3( 0,    0.5, 0   ), zoom: 1.75 },
+    { pos: new THREE.Vector3(-7.5,  5,    6   ), look: new THREE.Vector3( 1.5,  0,  -1.5 ), zoom: 1.40 }
   ];
   var camPos = new THREE.Vector3();
   var camLook = new THREE.Vector3();
@@ -132,14 +132,48 @@
   // ============================================================
   // Stepped buildings (white with subtle gray edges)
   // ============================================================
+  // Reusable shadow material (translucent dark) for grounding buildings
+  var matShadow = new THREE.MeshBasicMaterial({
+    color: 0x0a0a0a, transparent: true, opacity: 0.10, depthWrite: false
+  });
+
+  function addBuildingShadow(parent, x, z, w, d, scale) {
+    var s = scale || 1.45;
+    var shadowGeo = new THREE.PlaneGeometry(w * s, d * s);
+    var shadow = new THREE.Mesh(shadowGeo, matShadow);
+    shadow.rotation.x = -Math.PI / 2;
+    // Offset slightly south-east so it reads as cast shadow
+    shadow.position.set(x + 0.18, GROUND_Y + 0.006, z + 0.18);
+    parent.add(shadow);
+  }
+
+  // Add horizontal window stripes on a building face
+  function addWindows(parent, x, z, w, h, d, count) {
+    var rows = count || 3;
+    for (var i = 0; i < rows; i++) {
+      var yy = GROUND_Y + 0.05 + (i + 0.5) * (h / (rows + 0.5));
+      var stripe = new THREE.Mesh(
+        new THREE.BoxGeometry(w + 0.008, 0.02, d + 0.008),
+        new THREE.MeshBasicMaterial({ color: SHADE_LT })
+      );
+      stripe.position.set(x, yy, z);
+      parent.add(stripe);
+    }
+  }
+
   function makeBuilding(x, z, segments, withCap, accentColor) {
     var grp = new THREE.Group();
     var y = GROUND_Y + 0.005;
     var lastW = 0, lastD = 0;
+    // Ground shadow under the building footprint
+    var fp = segments[0];
+    addBuildingShadow(grp, x, z, fp.w, fp.d, 1.5);
     for (var i = 0; i < segments.length; i++) {
       var s = segments[i];
       var face = i % 2 === 0 ? matBldgFace : matBldgShade;
       addBox(grp, s.w, s.h, s.d, x, y + s.h / 2, z, matEdge, face);
+      // Window stripes on the base segment
+      if (i === 0 && s.h > 0.4) addWindows(grp, x, z, s.w, s.h, s.d, 3);
       y += s.h;
       lastW = s.w; lastD = s.d;
     }
