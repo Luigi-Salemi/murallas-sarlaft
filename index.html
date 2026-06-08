@@ -8,9 +8,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css?v=14" />
+  <link rel="stylesheet" href="css/styles.css?v=15" />
 </head>
 <body>
+  <!-- ===== Fixed 3D background (visible across the entire page) ===== -->
+  <div class="page-stage" id="heroVisual">
+    <canvas id="heroCanvas" class="hero-canvas" aria-label="Escena logística interactiva SARLAFT. Arrastre para rotar."></canvas>
+    <span class="hero-hint">Arrastra · Desplázate</span>
+  </div>
   <!-- ===== Header ===== -->
   <header class="site-header" id="top">
     <div class="container header-inner">
@@ -39,75 +44,32 @@
   </header>
 
   <main>
-    <!-- ===== Hero (full-bleed scrolltelling) ===== -->
-    <section class="hero scrolltelling" id="heroSection">
-      <!-- Sticky 3D stage (background) -->
-      <div class="hero-stage" id="heroVisual">
-        <canvas id="heroCanvas" class="hero-canvas" aria-label="Red logística de transporte bajo monitoreo SARLAFT. Arrastre para rotar; desplácese para mover los camiones."></canvas>
-        <span class="hero-hint">Desplázate · Arrastra</span>
-        <span class="hero-visual-caption">SARLAFT para el sector transporte</span>
-      </div>
-
-      <!-- Foreground content (overlays on top of canvas) -->
-      <div class="hero-content">
-        <div class="container">
-          <article class="hero-panel" data-panel="0">
-            <p class="eyebrow reveal">Prevención de LA/FT · Cartagena de Indias, Colombia</p>
-            <h1 class="hero-title reveal">
-              Protegemos su reputación.<br />
-              Aseguramos su <span class="serif-italic">cumplimiento</span>.
-            </h1>
-            <p class="hero-lead reveal">
-              Consultoría especializada en SARLAFT y SAGRLAFT para el sector
-              transporte. Diseñamos, implementamos y fortalecemos su sistema de
-              administración del riesgo de lavado de activos y financiación del
-              terrorismo, en estricta conformidad con la normativa colombiana.
-            </p>
-            <div class="hero-actions reveal">
-              <a href="#contacto" class="btn btn-dark">Solicitar diagnóstico gratuito</a>
-              <a href="#servicios" class="btn btn-ghost">Conocer servicios</a>
-            </div>
-            <p class="scroll-cue reveal" aria-hidden="true">
-              <span class="scroll-cue-line"></span>
-              <span class="scroll-cue-text">Desplázate · los camiones avanzan con tu lectura</span>
-            </p>
-          </article>
-
-          <article class="hero-panel hero-panel--right" data-panel="1">
-            <p class="eyebrow reveal">Servicios</p>
-            <h2 class="hero-panel-title reveal">Cada ruta es un servicio en operación</h2>
-            <p class="hero-panel-lead reveal">
-              Implementación de SARLAFT/SAGRLAFT, auditoría, capacitación, oficial
-              de cumplimiento externo, debida diligencia ampliada y reportes a la
-              UIAF. Acompañamos a operadores de transporte en cada etapa del ciclo
-              de gestión del riesgo.
-            </p>
-            <a href="#servicios" class="btn btn-ghost reveal">Recorrer los servicios</a>
-          </article>
-
-          <article class="hero-panel" data-panel="2">
-            <p class="eyebrow reveal">Enfoque</p>
-            <h2 class="hero-panel-title reveal">Cumplimiento en cada terminal</h2>
-            <p class="hero-panel-lead reveal">
-              Cada vez que un camión llega al centro de operaciones, el sistema
-              SARLAFT registra una auditoría. Así trabajamos: monitoreo continuo
-              sobre cada ruta, reportes oportunos y un sistema que se mantiene
-              en marcha 24/7.
-            </p>
-            <a href="#contacto" class="btn btn-dark reveal">Agendar diagnóstico</a>
-          </article>
-
-          <div class="hero-stats reveal">
-            <div class="stat"><span class="stat-title">Especialización exclusiva</span><span class="stat-label">Enfocados únicamente en la prevención del LA/FT.</span></div>
-            <div class="stat"><span class="stat-title">Enfoque basado en riesgos</span><span class="stat-label">Soluciones a la medida de su actividad y su normatividad.</span></div>
-            <div class="stat"><span class="stat-title">Acompañamiento integral</span><span class="stat-label">Del diagnóstico a la operación del sistema.</span></div>
+    <!-- ===== Hero (single panel, scene shows through behind) ===== -->
+    <section class="hero stage-section" id="heroSection" data-stop="0">
+      <div class="container hero-overlay">
+        <article class="overlay-panel">
+          <p class="overlay-num">01</p>
+          <p class="eyebrow reveal">Prevención de LA/FT · Cartagena de Indias, Colombia</p>
+          <h1 class="hero-title reveal">
+            Protegemos su reputación.<br />
+            Aseguramos su <span class="serif-italic">cumplimiento</span>.
+          </h1>
+          <p class="hero-lead reveal">
+            Consultoría especializada en SARLAFT y SAGRLAFT para el sector
+            transporte. Diseñamos, implementamos y fortalecemos su sistema de
+            administración del riesgo de lavado de activos y financiación del
+            terrorismo, en estricta conformidad con la normativa colombiana.
+          </p>
+          <div class="hero-actions reveal">
+            <a href="#contacto" class="btn btn-dark">Solicitar diagnóstico gratuito</a>
+            <a href="#servicios" class="btn btn-ghost">Conocer servicios</a>
           </div>
-        </div>
+        </article>
       </div>
     </section>
 
     <!-- ===== Trust / regulators strip ===== -->
-    <section class="trust">
+    <section class="trust stage-section" data-stop="1">
       <div class="container">
         <p class="trust-label reveal">Alineados con los marcos de supervisión en Colombia</p>
         <ul class="trust-logos reveal">
@@ -120,7 +82,7 @@
       </div>
     </section>
     <!-- ===== Services ===== -->
-    <section class="section services" id="servicios">
+    <section class="section services stage-section" id="servicios" data-stop="2">
       <div class="container">
         <div class="section-head reveal">
           <p class="eyebrow">Servicios</p>
@@ -187,7 +149,7 @@
     </section>
 
     <!-- ===== About / Cartagena ===== -->
-    <section class="section about" id="nosotros">
+    <section class="section about stage-section" id="nosotros" data-stop="3">
       <div class="container about-grid">
         <div class="about-media reveal">
           <img
@@ -226,7 +188,7 @@
     </section>
 
     <!-- ===== Approach ===== -->
-    <section class="section approach" id="enfoque">
+    <section class="section approach stage-section" id="enfoque" data-stop="4">
       <div class="container">
         <div class="section-head reveal">
           <p class="eyebrow">Enfoque</p>
@@ -258,7 +220,7 @@
     </section>
 
     <!-- ===== CTA banner ===== -->
-    <section class="cta-banner">
+    <section class="cta-banner stage-section" data-stop="5">
       <div class="container cta-inner reveal">
         <h2>¿Su organización está preparada para una visita del supervisor?</h2>
         <p>Solicite un diagnóstico inicial sin costo y conozca su nivel real de cumplimiento.</p>
@@ -267,7 +229,7 @@
     </section>
 
     <!-- ===== Contact ===== -->
-    <section class="section contact" id="contacto">
+    <section class="section contact stage-section" id="contacto" data-stop="6">
       <div class="container contact-grid">
         <div class="contact-info reveal">
           <p class="eyebrow">Contacto</p>
@@ -360,7 +322,7 @@
   </footer>
 
   <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-  <script src="js/hero3d.js?v=14"></script>
-  <script src="js/main.js?v=14"></script>
+  <script src="js/hero3d.js?v=15"></script>
+  <script src="js/main.js?v=15"></script>
 </body>
 </html>

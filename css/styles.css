@@ -31,12 +31,157 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   font-family: var(--sans);
   color: var(--ink);
-  background: var(--white);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.10), transparent 60%),
+    linear-gradient(180deg, #eef4ff 0%, #e6eefb 30%, #f0f5ff 100%);
   line-height: 1.6;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  min-height: 100vh;
 }
+
+/* ---------- Full-page 3D background ---------- */
+.page-stage {
+  position: fixed;
+  top: 76px;
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - 76px);
+  z-index: 1;
+  pointer-events: auto;
+}
+.page-stage .hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: grab;
+  touch-action: none;
+}
+.page-stage .hero-canvas:active { cursor: grabbing; }
+.page-stage .hero-hint {
+  position: absolute;
+  top: 1rem;
+  right: 1.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #1e40af;
+  font-weight: 600;
+  z-index: 2;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.page-stage .hero-hint::before {
+  content: "";
+  width: 14px; height: 2px;
+  background: #3b82f6;
+}
+
+/* Header + main + footer sit above the canvas */
+.site-header { z-index: 50; }
+main { position: relative; z-index: 10; }
+.site-footer { position: relative; z-index: 10; }
+
+/* Each section overlays the canvas but lets it bleed through */
+.stage-section { position: relative; background: transparent; }
+
+/* Hero zone — full viewport, content overlay panel */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  padding-block: clamp(2rem, 6vw, 4rem);
+  background: transparent !important;
+  border: none;
+}
+.hero-overlay { width: 100%; }
+.overlay-panel {
+  max-width: 540px;
+  background: rgba(255, 255, 255, 0.70);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+  padding: clamp(1.4rem, 2.5vw, 2rem);
+  box-shadow: 0 12px 30px rgba(29, 78, 216, 0.08);
+}
+.overlay-num {
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.3em;
+  color: #1e40af;
+  font-weight: 600;
+  margin-bottom: 0.85rem;
+}
+.hero .hero-title { font-size: clamp(1.7rem, 3.4vw, 2.8rem); line-height: 1.08; }
+.hero .hero-lead { font-size: clamp(0.95rem, 1.05vw, 1.05rem); margin-top: 1rem; }
+.hero .hero-actions { margin-top: 1.6rem; }
+.hero .btn { padding: 0.7rem 1.2rem; font-size: 0.88rem; }
+
+/* Blue scope: hero eyebrow + serif italic */
+.hero .eyebrow { color: #1e40af !important; }
+.hero .serif-italic {
+  background: linear-gradient(90deg, #1d4ed8, #3b82f6) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+.hero .btn-dark:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.hero .btn-ghost:hover { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+/* Frosted overlay treatment for sections that should show scene */
+.trust.stage-section { background: rgba(255, 255, 255, 0.55); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid rgba(59,130,246,0.18); border-bottom: 1px solid rgba(59,130,246,0.18); }
+.section.services { background: transparent; }
+.section.about { background: transparent; }
+.section.approach { background: transparent; }
+.section.contact { background: transparent; }
+
+/* Cards become frosted glass over the scene */
+.section.services .cards { background: transparent; border: none; gap: 1px; }
+.section.services .card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 8px;
+}
+.section.services .card:hover { background: var(--black); }
+
+.about-content { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 10px; padding: clamp(1.4rem, 3vw, 2rem); }
+.steps .step {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 8px;
+  padding: 1.2rem 1.4rem;
+}
+.contact-info { background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 10px; padding: clamp(1.4rem, 2.5vw, 2rem); }
+.contact-form {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Section number labels (vectrfl-style) */
+.section .section-head { position: relative; }
+.section .section-head::before {
+  content: attr(data-num);
+  display: block;
+  font-family: var(--serif);
+  font-size: 0.78rem;
+  letter-spacing: 0.3em;
+  color: #1e40af;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* CTA banner stays solid for dramatic break in the experience */
+.cta-banner.stage-section { background: var(--black); }
 
 img { max-width: 100%; display: block; }
 a { color: inherit; text-decoration: none; }

@@ -50,11 +50,22 @@
   camera.position.set(7, 5, 8);
   camera.lookAt(0, 0, 0);
 
-  // Camera keyframes — wide → close to HQ → opposite swing
+  // Camera keyframes — one per page section (7 stops across the entire page)
+  // 0: Hero (wide overview)
+  // 1: Trust strip (slight push in)
+  // 2: Services (close on HQ from above)
+  // 3: About (pan to NE warehouse)
+  // 4: Approach (swing to NW customs, opposite side)
+  // 5: CTA (pull back, high angle)
+  // 6: Contact (settle on the hub)
   var camStops = [
-    { pos: new THREE.Vector3( 7,    5,    8   ), look: new THREE.Vector3( 0,   0.2, 0   ), zoom: 1.30 },
-    { pos: new THREE.Vector3( 2.5,  3,    5   ), look: new THREE.Vector3( 0,   0.7, 0   ), zoom: 1.75 },
-    { pos: new THREE.Vector3(-7,    5,    6   ), look: new THREE.Vector3( 1.2, 0,  -1.0 ), zoom: 1.35 }
+    { pos: new THREE.Vector3( 7,    5,    8   ), look: new THREE.Vector3( 0,    0.2, 0   ), zoom: 1.30 },
+    { pos: new THREE.Vector3( 5.5,  4,    7   ), look: new THREE.Vector3( 0,    0.5, 0   ), zoom: 1.55 },
+    { pos: new THREE.Vector3( 2.5,  3,    5   ), look: new THREE.Vector3( 0,    0.7, 0   ), zoom: 1.80 },
+    { pos: new THREE.Vector3( 7,    4,    -3  ), look: new THREE.Vector3( 3,    0.3, -2.5), zoom: 1.45 },
+    { pos: new THREE.Vector3(-7,    5,    -2  ), look: new THREE.Vector3(-1.5,  0.3, -2.0), zoom: 1.45 },
+    { pos: new THREE.Vector3(-6,    7,    7   ), look: new THREE.Vector3( 0.5,  0,   1.2 ), zoom: 1.25 },
+    { pos: new THREE.Vector3( 0,    8,    9   ), look: new THREE.Vector3( 0,    0,   0   ), zoom: 1.50 }
   ];
   var camPos = new THREE.Vector3();
   var camLook = new THREE.Vector3();
@@ -448,17 +459,14 @@
   if (window.ResizeObserver && visual) new ResizeObserver(resize).observe(visual);
 
   // ============================================================
-  // Scroll progress
+  // Scroll progress — across the ENTIRE page now
   // ============================================================
   var scrollProgress = 0;
   function updateScrollProgress() {
-    if (!heroSection) return;
-    var rect = heroSection.getBoundingClientRect();
-    var sectionH = heroSection.offsetHeight;
-    var vh = window.innerHeight;
-    var scrolled = Math.max(0, -rect.top);
-    var maxScroll = Math.max(1, sectionH - vh);
-    scrollProgress = Math.max(0, Math.min(1, scrolled / maxScroll));
+    var doc = document.documentElement;
+    var totalH = Math.max(1, (doc.scrollHeight || document.body.scrollHeight) - window.innerHeight);
+    var scrolled = window.scrollY || doc.scrollTop || 0;
+    scrollProgress = Math.max(0, Math.min(1, scrolled / totalH));
   }
   window.addEventListener("scroll", updateScrollProgress, { passive: true });
   window.addEventListener("resize", updateScrollProgress);
