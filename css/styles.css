@@ -339,13 +339,64 @@ ul { list-style: none; }
   background: rgba(255, 255, 255, 0.65);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(201, 161, 74, 0.35);
+  border: 1px solid rgba(59, 130, 246, 0.30);
   border-radius: 10px;
   padding: 1.2rem 1.5rem;
   margin-top: 0;
   margin-bottom: clamp(2rem, 5vw, 4rem);
   max-width: 880px;
   width: 100%;
+}
+
+/* ============================================================
+   Vectr palette overrides — scoped strictly to the scrolltelling
+   hero zone. The rest of the site keeps the gold brand theme.
+   ============================================================ */
+.hero.scrolltelling .eyebrow { color: #1e40af; }
+.hero.scrolltelling .serif-italic {
+  background: linear-gradient(90deg, #1d4ed8, #3b82f6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero.scrolltelling .hero-title::before,
+.hero.scrolltelling .hero-panel-title::before {
+  background: #3b82f6;
+}
+.hero.scrolltelling .hero-panel {
+  border-color: rgba(59, 130, 246, 0.30);
+}
+.hero.scrolltelling .hero-panel + .hero-panel {
+  border-top-color: rgba(59, 130, 246, 0.30);
+}
+.hero.scrolltelling .stat {
+  border-top-color: #3b82f6;
+}
+.hero.scrolltelling .scroll-cue { color: #1e40af; }
+.hero.scrolltelling .scroll-cue-line { background: #3b82f6; }
+
+/* In-stage UI (hint badge + caption pill) */
+.hero-stage .hero-hint { color: #1e40af; }
+.hero-stage .hero-hint::before { background: #3b82f6; }
+.hero-stage .hero-visual-caption {
+  color: #1e40af;
+  border: 1px solid rgba(59, 130, 246, 0.40);
+  border-left: 2px solid #3b82f6;
+}
+
+/* Buttons inside the hero — blue hover instead of gold */
+.hero.scrolltelling .btn-dark:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+.hero.scrolltelling .btn-ghost:hover {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+.hero.scrolltelling .btn:hover {
+  box-shadow: 0 8px 22px rgba(59, 130, 246, 0.18);
 }
 .hero-inner {
   display: grid;
