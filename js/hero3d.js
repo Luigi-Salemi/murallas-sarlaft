@@ -14,6 +14,7 @@
 
   var canvas = document.getElementById("heroCanvas");
   var visual = document.getElementById("heroVisual");
+  var heroSection = document.getElementById("heroSection");
   if (!canvas) return;
 
   var reduceMotion = window.matchMedia &&
@@ -354,6 +355,24 @@
   canvas.addEventListener("pointerleave", onLeave);
 
   // ============================================================
+  // Scroll-driven train: progress through #heroSection drives train angle
+  // ============================================================
+  var scrollProgress = 0;
+  var TRAIN_LOOPS_PER_SECTION = 2.5; // how many laps the train completes scrolling the hero
+  function updateScrollProgress() {
+    if (!heroSection) return;
+    var rect = heroSection.getBoundingClientRect();
+    var sectionH = heroSection.offsetHeight;
+    var vh = window.innerHeight;
+    var scrolled = Math.max(0, -rect.top);
+    var maxScroll = Math.max(1, sectionH - vh);
+    scrollProgress = Math.max(0, Math.min(1, scrolled / maxScroll));
+  }
+  window.addEventListener("scroll", updateScrollProgress, { passive: true });
+  window.addEventListener("resize", updateScrollProgress);
+  updateScrollProgress();
+
+  // ============================================================
   // Animation loop
   // ============================================================
   var t = 0;
@@ -390,15 +409,19 @@
     seedEdges.rotation.y =  t * 1.4;
     seedEdges.rotation.x =  t * 0.8;
 
-    // Cargo train movement
+    // Cargo train movement — driven by scroll progress + gentle idle drift
     var prevAngle = trainAngle;
-    trainAngle += reduceMotion ? 0 : 0.0042;
+    var targetAngle = scrollProgress * Math.PI * 2 * TRAIN_LOOPS_PER_SECTION;
+    // Smooth lerp toward scroll-driven target
+    trainAngle += (targetAngle - trainAngle) * 0.10;
+    // Subtle idle drift so the train still breathes when scroll is stationary
+    if (!reduceMotion) trainAngle += 0.0008;
     placeOnRing(locomotive, trainAngle);
     for (var i = 0; i < wagons.length; i++) {
       placeOnRing(wagons[i], trainAngle - (i + 1) * CAR_OFFSET);
     }
     // Audit pulse when train passes angle 0 (the "checkpoint")
-    if ((prevAngle % (Math.PI * 2)) > (trainAngle % (Math.PI * 2))) {
+    if ((prevAngle % (Math.PI * 2)) > (trainAngle % (Math.PI * 2)) && trainAngle > prevAngle) {
       corePulse = Math.min(1, corePulse + 0.7);
     }
 

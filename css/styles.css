@@ -222,15 +222,72 @@ ul { list-style: none; }
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   gap: clamp(2rem, 5vw, 4.5rem);
-  align-items: center;
+  align-items: start;
 }
-.hero-text { max-width: 620px; position: relative; z-index: 1; }
-.hero-visual {
+.hero-text {
   position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+}
+.hero-panel {
+  min-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: clamp(2rem, 4vw, 3rem);
+  max-width: 620px;
+}
+.hero-panel + .hero-panel {
+  border-top: 1px solid var(--gold-soft);
+}
+.hero-panel-title {
+  font-size: clamp(1.9rem, 4.2vw, 3rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  color: var(--black);
+  margin-block: 1.2rem;
+  position: relative;
+}
+.hero-panel-title::before {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 3px;
+  background: var(--gold);
+  margin-bottom: 1.2rem;
+}
+.hero-panel-lead {
+  font-size: clamp(1rem, 1.6vw, 1.15rem);
+  color: var(--gray-600);
+  max-width: 50ch;
+  margin-bottom: 2rem;
+}
+.hero-panel .btn { align-self: flex-start; }
+.scroll-cue {
+  margin-top: 3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  font-weight: 600;
+  opacity: 0.9;
+}
+.scroll-cue-line {
+  display: inline-block;
+  width: 36px; height: 1px;
+  background: var(--gold);
+}
+.hero-visual {
+  position: sticky;
+  top: 100px;
   width: 100%;
-  min-width: 280px;
-  aspect-ratio: 1 / 1;
-  min-height: 380px;
+  height: calc(100vh - 130px);
+  min-height: 460px;
   background:
     radial-gradient(circle at 50% 45%, rgba(201, 161, 74, 0.20), transparent 65%),
     linear-gradient(180deg, rgba(255,255,255,0.5), rgba(246,243,236,0.8));
@@ -297,7 +354,16 @@ ul { list-style: none; }
 .hero-visual.engaged .hero-hint { opacity: 0; }
 @media (max-width: 900px) {
   .hero-inner { grid-template-columns: 1fr; }
-  .hero-visual { aspect-ratio: 16 / 11; min-height: 260px; order: -1; }
+  .hero-visual {
+    position: relative;
+    top: auto;
+    aspect-ratio: 16 / 11;
+    height: auto;
+    min-height: 280px;
+    order: -1;
+  }
+  .hero-panel { min-height: auto; }
+  .hero-panel + .hero-panel { margin-top: 1.5rem; padding-top: 2rem; }
 }
 .hero::after {
   content: "";
